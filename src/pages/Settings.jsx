@@ -15,9 +15,9 @@ export const Settings = () => {
   const { showToast } = useAdmin();
 
   const [storeSettings, setStoreSettings] = useState({
-    storeName: 'Trio Ecart Enterprise',
-    tagline: 'Handmade Decorative Patches, Artificial Flowers & Traditional Pooja Decor',
-    supportEmail: 'support@trioecart.com',
+    storeName: 'Trio Enterprises',
+    tagline: 'Ethnic Craft Guild | Handcrafted Patches, Devotional Decor & Copper Wellness',
+    supportEmail: 'support@trioenterprises.com',
     supportPhone: '+91 99099 88776',
     address: 'Ring Road Textile Market, Surat, Gujarat 395002',
     gstin: '24AAACT1234F1Z8',
@@ -43,7 +43,7 @@ export const Settings = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-black tracking-tight text-white">Store & Fulfillment Settings</h1>
+          <h1 className="text-2xl font-black tracking-tight text-white">Store &amp; Fulfillment Settings</h1>
           <p className="text-xs sm:text-sm text-slate-400 mt-1">
             Configure business identity, GST tax rules, courier integrations and inventory thresholds.
           </p>
@@ -57,9 +57,16 @@ export const Settings = () => {
       <form onSubmit={handleSave} className="space-y-6 text-xs">
         {/* Business Profile */}
         <div className="admin-card p-6 space-y-4">
-          <div className="flex items-center gap-2.5 pb-3 border-b border-slate-800">
-            <Store className="w-4 h-4 text-indigo-400" />
-            <h3 className="font-bold text-white text-sm">Store Profile & Tax Identity</h3>
+          <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+            <div className="flex items-center gap-2.5">
+              <Store className="w-4 h-4 text-indigo-400" />
+              <h3 className="font-bold text-white text-sm">Store Profile &amp; Tax Identity</h3>
+            </div>
+            {/* Logo Emblem Pill */}
+            <div className="flex items-center gap-2 px-3 py-1 bg-slate-950 rounded-xl border border-slate-800">
+              <img src="/logo.png" alt="Trio Enterprises Logo" className="w-6 h-6 object-contain" />
+              <span className="font-black text-xs text-white">TRIO <span className="text-amber-400">ENTERPRISES</span></span>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

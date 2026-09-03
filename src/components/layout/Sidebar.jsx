@@ -162,18 +162,32 @@ export const Sidebar = () => {
         `}
       >
         {/* Brand Header */}
-        <div className="h-16 flex items-center justify-between px-4 border-b border-slate-800/80 shrink-0">
+        <div className="h-16 flex items-center justify-between px-3.5 border-b border-slate-800/80 shrink-0">
           <div className="flex items-center gap-3 overflow-hidden">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-amber-500 flex items-center justify-center text-white shadow-lg shadow-indigo-600/30 shrink-0">
-              <Sparkles className="w-5 h-5" />
+            {/* Authentic Logo Emblem from triotech */}
+            <div className="w-10 h-10 rounded-xl overflow-hidden p-0.5 bg-gradient-to-br from-amber-500/50 via-rose-700/40 to-amber-500/50 shadow-md shrink-0">
+              <div className="w-full h-full rounded-[10px] bg-slate-950 flex items-center justify-center overflow-hidden border border-amber-500/40">
+                <img
+                  src="/logo.png"
+                  alt="Trio Enterprises"
+                  className="w-full h-full object-contain p-0.5 transform hover:scale-110 transition-transform"
+                />
+              </div>
             </div>
+
             {!sidebarCollapsed && (
               <div className="flex flex-col truncate animate-fadeIn">
                 <div className="flex items-center gap-1.5">
-                  <span className="font-extrabold text-base tracking-tight text-white">TRIO ECART</span>
-                  <span className="text-[9px] bg-amber-500/10 text-amber-400 border border-amber-500/20 px-1 py-0.2 rounded font-bold">CMS</span>
+                  <span className="font-black text-sm tracking-tight text-white">
+                    TRIO <span className="text-amber-400 font-bold">ENTERPRISES</span>
+                  </span>
+                  <span className="text-[8px] bg-amber-500/10 text-amber-400 border border-amber-500/30 px-1 py-0.2 rounded font-black uppercase">
+                    CMS
+                  </span>
                 </div>
-                <span className="text-[11px] text-slate-400 truncate">Store &amp; Content Management</span>
+                <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider truncate">
+                  Ethnic Craft Guild
+                </span>
               </div>
             )}
           </div>

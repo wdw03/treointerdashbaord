@@ -68,9 +68,12 @@ export const PrintModal = () => {
                   className="bg-white text-slate-900 p-6 rounded-xl border-2 border-dashed border-slate-400 max-w-md mx-auto w-full font-mono text-xs shadow-lg"
                 >
                   <div className="flex items-center justify-between border-b-2 border-black pb-3 mb-3">
-                    <div>
-                      <h4 className="font-black text-lg tracking-tight">TRIO ECART</h4>
-                      <p className="text-[10px] text-slate-600 font-sans">Craft & Festival Collection</p>
+                    <div className="flex items-center gap-2">
+                      <img src="/logo.png" alt="Trio Enterprises" className="w-7 h-7 object-contain" />
+                      <div>
+                        <h4 className="font-black text-base tracking-tight">TRIO ENTERPRISES</h4>
+                        <p className="text-[9px] text-slate-600 font-sans uppercase">Ethnic Craft Guild</p>
+                      </div>
                     </div>
                     <div className="text-right">
                       <span className="inline-block bg-black text-white px-2 py-0.5 text-xs font-bold uppercase rounded">
@@ -183,14 +186,18 @@ export const PrintModal = () => {
               <div key={order.id} className="bg-white text-slate-900 p-8 rounded-xl shadow-lg max-w-3xl mx-auto w-full font-sans text-sm">
                 <div className="flex justify-between items-start border-b border-slate-200 pb-6 mb-6">
                   <div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-2xl font-black tracking-tight text-indigo-900">TRIO ECART</span>
-                      <span className="bg-amber-100 text-amber-800 border border-amber-300 text-[10px] font-bold px-1.5 py-0.5 rounded">AUTHENTIC</span>
+                    <div className="flex items-center gap-2.5">
+                      <img src="/logo.png" alt="Trio Enterprises" className="w-9 h-9 object-contain" />
+                      <div>
+                        <span className="text-2xl font-black tracking-tight text-slate-900">
+                          TRIO <span className="text-amber-600">ENTERPRISES</span>
+                        </span>
+                        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Ethnic Craft Guild</p>
+                      </div>
                     </div>
-                    <p className="text-xs text-slate-500 mt-1">Trieotech Enterprise / Trio Ecart</p>
-                    <p className="text-xs text-slate-500">GSTIN: 24AAACT1234F1Z8</p>
-                    <p className="text-xs text-slate-500">Ring Road, Surat, Gujarat 395002</p>
-                    <p className="text-xs text-slate-500">support@trioecart.com | +91 99099 88776</p>
+                    <p className="text-xs text-slate-500 mt-1.5">GSTIN: 24AAACT1234F1Z8</p>
+                    <p className="text-xs text-slate-500">Ring Road Textile Market, Surat, Gujarat 395002</p>
+                    <p className="text-xs text-slate-500">support@trioenterprises.com | +91 99099 88776</p>
                   </div>
                   <div className="text-right">
                     <h2 className="text-xl font-bold text-slate-800 tracking-wide uppercase">TAX INVOICE</h2>
