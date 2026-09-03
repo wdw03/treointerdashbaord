@@ -165,9 +165,9 @@ export const Orders = () => {
   };
 
   return (
-    <div className="space-y-4 sm:space-y-6 w-full max-w-full min-w-0">
+    <div className="space-y-3 sm:space-y-4 w-full max-w-full min-w-0 flex flex-col lg:h-[calc(100vh-7.5rem)] lg:max-h-[calc(100vh-7.5rem)]">
       {/* Header with Title and Actions */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 w-full min-w-0">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 w-full min-w-0 shrink-0">
         <div className="min-w-0">
           <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white truncate">Orders Management</h1>
           <p className="text-xs sm:text-sm text-slate-400 mt-0.5 sm:mt-1">
@@ -211,7 +211,7 @@ export const Orders = () => {
       </div>
 
       {/* HORIZONTAL STATUS TABS (Single row with smooth scroll & left/right buttons) */}
-      <div className="relative w-full max-w-full min-w-0 border-b border-slate-800/80 pb-2 group">
+      <div className="relative w-full max-w-full min-w-0 border-b border-slate-800/80 pb-2 group shrink-0">
         {/* Left Scroll Button */}
         {canScrollLeft && (
           <div className="absolute left-0 top-0 bottom-2 z-10 flex items-center pr-6 bg-gradient-to-r from-[#0B0F19] via-[#0B0F19]/90 to-transparent pointer-events-none">
@@ -287,7 +287,7 @@ export const Orders = () => {
       </div>
 
       {/* FILTER & SEARCH CONTROL STRIP */}
-      <div className="admin-card p-3 sm:p-3.5 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-2.5 sm:gap-3 text-xs w-full max-w-full min-w-0">
+      <div className="admin-card p-3 sm:p-3.5 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-2.5 sm:gap-3 text-xs w-full max-w-full min-w-0 shrink-0">
         {/* Search */}
         <div className="relative w-full md:w-80 min-w-0">
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -348,9 +348,9 @@ export const Orders = () => {
       </div>
 
       {/* ORDERS TABLE CARD */}
-      <div className="admin-card overflow-hidden w-full max-w-full min-w-0 border border-slate-800/80 rounded-2xl shadow-xl">
+      <div className="admin-card overflow-hidden w-full max-w-full min-w-0 border border-slate-800/80 rounded-2xl shadow-xl flex flex-col flex-1 min-h-0">
         {/* Mobile Swipe Hint banner (only visible on mobile screens) */}
-        <div className="lg:hidden flex items-center justify-between px-3.5 py-2 bg-slate-950/70 border-b border-slate-800/80 text-[11px] text-slate-400 select-none">
+        <div className="lg:hidden flex items-center justify-between px-3.5 py-2 bg-slate-950/70 border-b border-slate-800/80 text-[11px] text-slate-400 select-none shrink-0">
           <span className="flex items-center gap-1.5 text-indigo-400 font-medium">
             <ArrowRightLeft className="w-3 h-3" /> Scroll table horizontally for all columns
           </span>
@@ -359,12 +359,12 @@ export const Orders = () => {
           </span>
         </div>
 
-        {/* Scrollable Container (Horizontally scrolls inside the card without pushing the page) */}
-        <div className="overflow-x-auto w-full max-w-full min-w-0 touch-pan-x overscroll-x-contain">
-          <table className="w-full text-left min-w-[940px] divide-y divide-slate-800/60">
-            <thead>
-              <tr className="bg-slate-900/60 text-slate-400">
-                <th className="table-th w-10 text-center px-3 py-3">
+        {/* Scrollable Container (Only table items scroll, headers & navbar stay fixed) */}
+        <div className="overflow-x-auto overflow-y-auto flex-1 min-h-[320px] max-h-[62vh] lg:max-h-none w-full max-w-full min-w-0 touch-pan-x overscroll-contain relative border-b border-slate-800/60">
+          <table className="w-full text-left min-w-[940px] border-separate border-spacing-0">
+            <thead className="sticky top-0 z-20 shadow-md">
+              <tr className="bg-[#0F172A] text-slate-300">
+                <th className="table-th sticky top-0 z-20 bg-[#0F172A] w-10 text-center px-3 py-3 border-b border-slate-800 shadow-sm">
                   <input
                     type="checkbox"
                     onChange={handleSelectAll}
@@ -372,15 +372,15 @@ export const Orders = () => {
                     className="w-4 h-4 rounded border-slate-700 bg-slate-800 text-indigo-600 focus:ring-indigo-500"
                   />
                 </th>
-                <th className="table-th px-3.5 py-3 min-w-[130px]">Order ID</th>
-                <th className="table-th px-3.5 py-3 min-w-[160px]">Customer</th>
-                <th className="table-th px-3.5 py-3 min-w-[200px]">Items &amp; Variants</th>
-                <th className="table-th text-center px-2 py-3 w-14">Qty</th>
-                <th className="table-th text-right px-3.5 py-3 min-w-[95px]">Amount</th>
-                <th className="table-th px-3.5 py-3 min-w-[105px]">Payment</th>
-                <th className="table-th px-3.5 py-3 min-w-[130px]">Status</th>
-                <th className="table-th px-3.5 py-3 min-w-[135px]">Courier / Tracking</th>
-                <th className="table-th text-right px-3.5 py-3 min-w-[90px]">Actions</th>
+                <th className="table-th sticky top-0 z-20 bg-[#0F172A] px-3.5 py-3 min-w-[130px] border-b border-slate-800 shadow-sm">Order ID</th>
+                <th className="table-th sticky top-0 z-20 bg-[#0F172A] px-3.5 py-3 min-w-[160px] border-b border-slate-800 shadow-sm">Customer</th>
+                <th className="table-th sticky top-0 z-20 bg-[#0F172A] px-3.5 py-3 min-w-[200px] border-b border-slate-800 shadow-sm">Items &amp; Variants</th>
+                <th className="table-th sticky top-0 z-20 bg-[#0F172A] text-center px-2 py-3 w-14 border-b border-slate-800 shadow-sm">Qty</th>
+                <th className="table-th sticky top-0 z-20 bg-[#0F172A] text-right px-3.5 py-3 min-w-[95px] border-b border-slate-800 shadow-sm">Amount</th>
+                <th className="table-th sticky top-0 z-20 bg-[#0F172A] px-3.5 py-3 min-w-[105px] border-b border-slate-800 shadow-sm">Payment</th>
+                <th className="table-th sticky top-0 z-20 bg-[#0F172A] px-3.5 py-3 min-w-[130px] border-b border-slate-800 shadow-sm">Status</th>
+                <th className="table-th sticky top-0 z-20 bg-[#0F172A] px-3.5 py-3 min-w-[135px] border-b border-slate-800 shadow-sm">Courier / Tracking</th>
+                <th className="table-th sticky top-0 z-20 bg-[#0F172A] text-right px-3.5 py-3 min-w-[90px] border-b border-slate-800 shadow-sm">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/40">
@@ -523,7 +523,7 @@ export const Orders = () => {
         </div>
 
         {/* Footer info */}
-        <div className="p-3 sm:p-3.5 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between gap-1 text-[11px] sm:text-xs text-slate-400">
+        <div className="p-3 sm:p-3.5 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between gap-1 text-[11px] sm:text-xs text-slate-400 shrink-0 bg-slate-900/90">
           <span>Showing {filteredOrders.length} of {orders.length} total orders</span>
           <span className="text-slate-500 text-[10px] sm:text-[11px]">Click any order row to view visual timeline and complete details</span>
         </div>
