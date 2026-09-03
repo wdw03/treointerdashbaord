@@ -171,9 +171,9 @@ export const Products = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3 sm:space-y-4 w-full max-w-full min-w-0 flex flex-col lg:h-[calc(100vh-7.5rem)] lg:max-h-[calc(100vh-7.5rem)]">
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0">
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-black tracking-tight text-white">Product Catalog & Gallery</h1>
@@ -186,13 +186,13 @@ export const Products = () => {
           </p>
         </div>
 
-        <button onClick={handleOpenNewProduct} className="btn-primary py-2 px-4 text-xs font-bold">
+        <button onClick={handleOpenNewProduct} className="btn-primary py-2 px-4 text-xs font-bold shrink-0">
           <Plus className="w-4 h-4" /> Add New Craft Product
         </button>
       </div>
 
       {/* FILTER TABS */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-2 border-b border-slate-800 text-xs no-scrollbar">
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-2 border-b border-slate-800 text-xs no-scrollbar shrink-0">
         {FILTER_BADGES.map((tab) => {
           const isActive = activeBadgeFilter === tab;
           return (
@@ -214,7 +214,7 @@ export const Products = () => {
       </div>
 
       {/* SEARCH AND CATEGORY FILTER */}
-      <div className="admin-card p-3.5 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+      <div className="admin-card p-3.5 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs shrink-0">
         <div className="relative w-full sm:w-80">
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
@@ -241,19 +241,19 @@ export const Products = () => {
       </div>
 
       {/* PRODUCTS TABLE WITH INTEGRATED MULTI-IMAGE PREVIEW */}
-      <div className="admin-card overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left">
-            <thead>
-              <tr>
-                <th className="table-th w-44">Product Photos & Angles</th>
-                <th className="table-th">Product Name & Category</th>
-                <th className="table-th">Material & Occasion</th>
-                <th className="table-th text-right">Price</th>
-                <th className="table-th text-center">Stock</th>
-                <th className="table-th">Badge / Flags</th>
-                <th className="table-th text-center">Status</th>
-                <th className="table-th text-right">Actions</th>
+      <div className="admin-card overflow-hidden w-full max-w-full min-w-0 border border-slate-800/80 rounded-2xl shadow-xl flex flex-col flex-1 min-h-0">
+        <div className="overflow-x-auto overflow-y-auto flex-1 min-h-[320px] max-h-[62vh] lg:max-h-none w-full max-w-full min-w-0 touch-pan-x overscroll-contain relative border-b border-slate-800/60">
+          <table className="w-full text-left border-separate border-spacing-0">
+            <thead className="sticky top-0 z-20 shadow-md">
+              <tr className="bg-[#0F172A] text-slate-300">
+                <th className="table-th sticky top-0 z-20 bg-[#0F172A] w-44 border-b border-slate-800 shadow-sm">Product Photos & Angles</th>
+                <th className="table-th sticky top-0 z-20 bg-[#0F172A] border-b border-slate-800 shadow-sm">Product Name & Category</th>
+                <th className="table-th sticky top-0 z-20 bg-[#0F172A] border-b border-slate-800 shadow-sm">Material & Occasion</th>
+                <th className="table-th sticky top-0 z-20 bg-[#0F172A] text-right border-b border-slate-800 shadow-sm">Price</th>
+                <th className="table-th sticky top-0 z-20 bg-[#0F172A] text-center border-b border-slate-800 shadow-sm">Stock</th>
+                <th className="table-th sticky top-0 z-20 bg-[#0F172A] border-b border-slate-800 shadow-sm">Badge / Flags</th>
+                <th className="table-th sticky top-0 z-20 bg-[#0F172A] text-center border-b border-slate-800 shadow-sm">Status</th>
+                <th className="table-th sticky top-0 z-20 bg-[#0F172A] text-right border-b border-slate-800 shadow-sm">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -374,7 +374,7 @@ export const Products = () => {
           </table>
         </div>
 
-        <div className="p-3.5 border-t border-slate-800/80 text-xs text-slate-400 flex justify-between items-center">
+        <div className="p-3.5 border-t border-slate-800/80 text-xs text-slate-400 flex justify-between items-center shrink-0 bg-slate-900/90">
           <span>Showing {filteredProducts.length} of {products.length} products</span>
           <span className="text-[11px] text-slate-500">All 164 Product Photos Loaded Locally</span>
         </div>

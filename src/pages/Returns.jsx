@@ -48,9 +48,9 @@ export const Returns = () => {
   }, [returns, activeTab, searchTerm]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3 sm:space-y-4 w-full max-w-full min-w-0 flex flex-col lg:h-[calc(100vh-7.5rem)] lg:max-h-[calc(100vh-7.5rem)]">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0">
         <div>
           <h1 className="text-2xl font-black tracking-tight text-white">Returns & Refund Claims</h1>
           <p className="text-xs sm:text-sm text-slate-400 mt-1">
@@ -60,7 +60,7 @@ export const Returns = () => {
       </div>
 
       {/* TABS */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-2 border-b border-slate-800 text-xs no-scrollbar">
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-2 border-b border-slate-800 text-xs no-scrollbar shrink-0">
         {RETURN_STAGES.map((tab) => {
           const count = tab === 'All' ? returns.length : returns.filter(r => r.status === tab).length;
           const isActive = activeTab === tab;
@@ -86,7 +86,7 @@ export const Returns = () => {
       </div>
 
       {/* SEARCH STRIP */}
-      <div className="admin-card p-3.5 flex items-center justify-between gap-3 text-xs">
+      <div className="admin-card p-3.5 flex items-center justify-between gap-3 text-xs shrink-0">
         <div className="relative w-full sm:w-80">
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
@@ -100,19 +100,19 @@ export const Returns = () => {
       </div>
 
       {/* RETURNS TABLE */}
-      <div className="admin-card overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left">
-            <thead>
-              <tr>
-                <th className="table-th">Claim ID</th>
-                <th className="table-th">Order ID</th>
-                <th className="table-th">Customer</th>
-                <th className="table-th">Product & Reason</th>
-                <th className="table-th text-right">Refund Amount</th>
-                <th className="table-th">Reverse Courier</th>
-                <th className="table-th">Status</th>
-                <th className="table-th text-right">Actions</th>
+      <div className="admin-card overflow-hidden w-full max-w-full min-w-0 border border-slate-800/80 rounded-2xl shadow-xl flex flex-col flex-1 min-h-0">
+        <div className="overflow-x-auto overflow-y-auto flex-1 min-h-[300px] max-h-[60vh] lg:max-h-none w-full max-w-full min-w-0 touch-pan-x overscroll-contain relative border-b border-slate-800/60">
+          <table className="w-full text-left border-separate border-spacing-0">
+            <thead className="sticky top-0 z-20 shadow-md">
+              <tr className="bg-[#0F172A] text-slate-300">
+                <th className="table-th sticky top-0 z-20 bg-[#0F172A] border-b border-slate-800 shadow-sm">Claim ID</th>
+                <th className="table-th sticky top-0 z-20 bg-[#0F172A] border-b border-slate-800 shadow-sm">Order ID</th>
+                <th className="table-th sticky top-0 z-20 bg-[#0F172A] border-b border-slate-800 shadow-sm">Customer</th>
+                <th className="table-th sticky top-0 z-20 bg-[#0F172A] border-b border-slate-800 shadow-sm">Product & Reason</th>
+                <th className="table-th sticky top-0 z-20 bg-[#0F172A] text-right border-b border-slate-800 shadow-sm">Refund Amount</th>
+                <th className="table-th sticky top-0 z-20 bg-[#0F172A] border-b border-slate-800 shadow-sm">Reverse Courier</th>
+                <th className="table-th sticky top-0 z-20 bg-[#0F172A] border-b border-slate-800 shadow-sm">Status</th>
+                <th className="table-th sticky top-0 z-20 bg-[#0F172A] text-right border-b border-slate-800 shadow-sm">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -142,10 +142,12 @@ export const Returns = () => {
                   <td className="table-td">
                     <span className={`
                       badge
-                      ${r.status === 'Return Requested' ? 'badge-amber' : ''}
-                      ${r.status === 'Returned' ? 'badge-purple' : ''}
                       ${r.status === 'Refunded' ? 'badge-emerald' : ''}
+                      ${r.status === 'Return Requested' ? 'badge-amber' : ''}
+                      ${r.status === 'Approved' ? 'badge-indigo' : ''}
+                      ${r.status === 'Pickup Scheduled' ? 'badge-indigo' : ''}
                       ${r.status === 'Rejected' ? 'badge-rose' : ''}
+                      ${r.status === 'In Transit' ? 'badge-indigo' : ''}
                     `}>
                       {r.status}
                     </span>
@@ -155,13 +157,17 @@ export const Returns = () => {
                       onClick={() => setSelectedReturn(r)}
                       className="btn-secondary py-1 px-2.5 text-xs font-medium"
                     >
-                      <Eye className="w-3.5 h-3.5" /> Details & Timeline
+                      <Eye className="w-3.5 h-3.5" /> Details
                     </button>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
+        </div>
+        <div className="p-3.5 border-t border-slate-800/80 text-xs text-slate-400 flex justify-between items-center shrink-0 bg-slate-900/90">
+          <span>Showing {filteredReturns.length} of {returns.length} return claims</span>
+          <span className="text-[11px] text-slate-500">Automated reverse pickup courier dispatch</span>
         </div>
       </div>
 

@@ -53,9 +53,9 @@ export const BlogManagementCms = () => {
   }, [cmsBlogs, selectedCategory, selectedStatus, searchTerm]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3 sm:space-y-4 w-full max-w-full min-w-0 flex flex-col lg:h-[calc(100vh-7.5rem)] lg:max-h-[calc(100vh-7.5rem)]">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0">
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-black tracking-tight text-white">Artisan Blog &amp; Journal CMS</h1>
@@ -74,14 +74,14 @@ export const BlogManagementCms = () => {
             setEditingBlog(null);
             setEditorModalOpen(true);
           }}
-          className="btn-primary py-2 px-4 text-xs font-bold"
+          className="btn-primary py-2 px-4 text-xs font-bold shrink-0"
         >
           <Plus className="w-4 h-4" /> Write New Craft Article
         </button>
       </div>
 
       {/* FILTER & SEARCH STRIP */}
-      <div className="admin-card p-3.5 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+      <div className="admin-card p-3.5 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs shrink-0">
         {/* Search */}
         <div className="relative w-full sm:w-80">
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -122,19 +122,19 @@ export const BlogManagementCms = () => {
       </div>
 
       {/* BLOG ARTICLES TABLE */}
-      <div className="admin-card overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left">
-            <thead>
-              <tr>
-                <th className="table-th w-20">Cover</th>
-                <th className="table-th">Article Title &amp; Slug</th>
-                <th className="table-th">Category</th>
-                <th className="table-th">Author</th>
-                <th className="table-th">Published Date</th>
-                <th className="table-th">Tags</th>
-                <th className="table-th text-center">Status</th>
-                <th className="table-th text-right">Actions</th>
+      <div className="admin-card overflow-hidden w-full max-w-full min-w-0 border border-slate-800/80 rounded-2xl shadow-xl flex flex-col flex-1 min-h-0">
+        <div className="overflow-x-auto overflow-y-auto flex-1 min-h-[300px] max-h-[60vh] lg:max-h-none w-full max-w-full min-w-0 touch-pan-x overscroll-contain relative border-b border-slate-800/60">
+          <table className="w-full text-left border-separate border-spacing-0">
+            <thead className="sticky top-0 z-20 shadow-md">
+              <tr className="bg-[#0F172A] text-slate-300">
+                <th className="table-th sticky top-0 z-20 bg-[#0F172A] w-20 border-b border-slate-800 shadow-sm">Cover</th>
+                <th className="table-th sticky top-0 z-20 bg-[#0F172A] border-b border-slate-800 shadow-sm">Article Title &amp; Slug</th>
+                <th className="table-th sticky top-0 z-20 bg-[#0F172A] border-b border-slate-800 shadow-sm">Category</th>
+                <th className="table-th sticky top-0 z-20 bg-[#0F172A] border-b border-slate-800 shadow-sm">Author</th>
+                <th className="table-th sticky top-0 z-20 bg-[#0F172A] border-b border-slate-800 shadow-sm">Published Date</th>
+                <th className="table-th sticky top-0 z-20 bg-[#0F172A] border-b border-slate-800 shadow-sm">Tags</th>
+                <th className="table-th sticky top-0 z-20 bg-[#0F172A] text-center border-b border-slate-800 shadow-sm">Status</th>
+                <th className="table-th sticky top-0 z-20 bg-[#0F172A] text-right border-b border-slate-800 shadow-sm">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -244,7 +244,7 @@ export const BlogManagementCms = () => {
           </table>
         </div>
 
-        <div className="p-3.5 border-t border-slate-800/80 text-xs text-slate-400 flex justify-between items-center">
+        <div className="p-3.5 border-t border-slate-800/80 text-xs text-slate-400 flex justify-between items-center shrink-0 bg-slate-900/90">
           <span>Showing {filteredBlogs.length} of {cmsBlogs.length} articles</span>
           <span className="text-[11px] text-slate-500">Includes Google Search SEO Metadata</span>
         </div>

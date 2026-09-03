@@ -97,9 +97,9 @@ export const Shipping = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3 sm:space-y-4 w-full max-w-full min-w-0 flex flex-col lg:h-[calc(100vh-7.5rem)] lg:max-h-[calc(100vh-7.5rem)]">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0">
         <div>
           <h1 className="text-2xl font-black tracking-tight text-white">Shipping & Delivery Logistics</h1>
           <p className="text-xs sm:text-sm text-slate-400 mt-1">
@@ -108,7 +108,7 @@ export const Shipping = () => {
         </div>
 
         {selectedShipments.length > 0 && (
-          <div className="flex items-center gap-2 bg-indigo-950/70 border border-indigo-500/40 px-3.5 py-1.5 rounded-xl text-xs text-slate-200 animate-fadeIn">
+          <div className="flex items-center gap-2 bg-indigo-950/70 border border-indigo-500/40 px-3.5 py-1.5 rounded-xl text-xs text-slate-200 animate-fadeIn shrink-0">
             <span className="font-bold text-indigo-400">{selectedShipments.length} selected</span>
             <button onClick={handleBulkPrintLabels} className="btn-primary py-1 px-3 text-xs">
               <Printer className="w-3.5 h-3.5" /> Bulk Print Shipping Labels
@@ -118,7 +118,7 @@ export const Shipping = () => {
       </div>
 
       {/* COURIER PARTNER HEALTH CARDS */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 shrink-0">
         <div className="admin-card p-4">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-slate-400">BlueDart Express</span>
@@ -133,13 +133,13 @@ export const Shipping = () => {
             <span className="text-xs font-semibold text-slate-400">Delhivery Surface</span>
             <span className="w-2 h-2 rounded-full bg-emerald-400" />
           </div>
-          <p className="text-xl font-black text-white mt-2">4 Shipments</p>
+          <p className="text-xl font-black text-white mt-2">3 Shipments</p>
           <p className="text-[11px] text-emerald-400 mt-0.5">Avg Delivery: 3.4 Days</p>
         </div>
 
         <div className="admin-card p-4">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-400">Xpressbees</span>
+            <span className="text-xs font-semibold text-slate-400">Xpressbees Logistics</span>
             <span className="w-2 h-2 rounded-full bg-emerald-400" />
           </div>
           <p className="text-xl font-black text-white mt-2">2 Shipments</p>
@@ -157,7 +157,7 @@ export const Shipping = () => {
       </div>
 
       {/* TABS */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-2 border-b border-slate-800 text-xs no-scrollbar">
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-2 border-b border-slate-800 text-xs no-scrollbar shrink-0">
         {SHIPPING_TABS.map((tab) => {
           const count = tab === 'All'
             ? shipments.length
@@ -187,7 +187,7 @@ export const Shipping = () => {
       </div>
 
       {/* CONTROLS */}
-      <div className="admin-card p-3.5 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+      <div className="admin-card p-3.5 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs shrink-0">
         <div className="relative w-full sm:w-80">
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
@@ -215,12 +215,12 @@ export const Shipping = () => {
       </div>
 
       {/* SHIPMENTS TABLE */}
-      <div className="admin-card overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left">
-            <thead>
-              <tr>
-                <th className="table-th w-10 text-center">
+      <div className="admin-card overflow-hidden w-full max-w-full min-w-0 border border-slate-800/80 rounded-2xl shadow-xl flex flex-col flex-1 min-h-0">
+        <div className="overflow-x-auto overflow-y-auto flex-1 min-h-[300px] max-h-[60vh] lg:max-h-none w-full max-w-full min-w-0 touch-pan-x overscroll-contain relative border-b border-slate-800/60">
+          <table className="w-full text-left border-separate border-spacing-0">
+            <thead className="sticky top-0 z-20 shadow-md">
+              <tr className="bg-[#0F172A] text-slate-300">
+                <th className="table-th sticky top-0 z-20 bg-[#0F172A] w-10 text-center border-b border-slate-800 shadow-sm">
                   <input
                     type="checkbox"
                     onChange={handleSelectAll}
@@ -228,14 +228,14 @@ export const Shipping = () => {
                     className="w-4 h-4 rounded border-slate-700 bg-slate-800 text-indigo-600 focus:ring-indigo-500"
                   />
                 </th>
-                <th className="table-th">AWB Tracking #</th>
-                <th className="table-th">Order Ref</th>
-                <th className="table-th">Destination City</th>
-                <th className="table-th">Partner</th>
-                <th className="table-th">Est Delivery</th>
-                <th className="table-th text-center">Attempts</th>
-                <th className="table-th">Shipping Stage</th>
-                <th className="table-th text-right">Actions</th>
+                <th className="table-th sticky top-0 z-20 bg-[#0F172A] border-b border-slate-800 shadow-sm">AWB Tracking #</th>
+                <th className="table-th sticky top-0 z-20 bg-[#0F172A] border-b border-slate-800 shadow-sm">Order Ref</th>
+                <th className="table-th sticky top-0 z-20 bg-[#0F172A] border-b border-slate-800 shadow-sm">Destination City</th>
+                <th className="table-th sticky top-0 z-20 bg-[#0F172A] border-b border-slate-800 shadow-sm">Partner</th>
+                <th className="table-th sticky top-0 z-20 bg-[#0F172A] border-b border-slate-800 shadow-sm">Est Delivery</th>
+                <th className="table-th sticky top-0 z-20 bg-[#0F172A] text-center border-b border-slate-800 shadow-sm">Attempts</th>
+                <th className="table-th sticky top-0 z-20 bg-[#0F172A] border-b border-slate-800 shadow-sm">Shipping Stage</th>
+                <th className="table-th sticky top-0 z-20 bg-[#0F172A] text-right border-b border-slate-800 shadow-sm">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -315,6 +315,10 @@ export const Shipping = () => {
               })}
             </tbody>
           </table>
+        </div>
+        <div className="p-3.5 border-t border-slate-800/80 text-xs text-slate-400 flex justify-between items-center shrink-0 bg-slate-900/90">
+          <span>Showing {filteredShipments.length} of {shipments.length} active consignments</span>
+          <span className="text-[11px] text-slate-500">Real-time carrier AWB tracking</span>
         </div>
       </div>
 

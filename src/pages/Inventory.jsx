@@ -79,9 +79,9 @@ export const Inventory = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3 sm:space-y-4 w-full max-w-full min-w-0 flex flex-col lg:h-[calc(100vh-7.5rem)] lg:max-h-[calc(100vh-7.5rem)]">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0">
         <div>
           <h1 className="text-2xl font-black tracking-tight text-white">Inventory Management</h1>
           <p className="text-xs sm:text-sm text-slate-400 mt-1">
@@ -91,7 +91,7 @@ export const Inventory = () => {
       </div>
 
       {/* KPI METRIC CARDS */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3.5">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3.5 shrink-0">
         <div className="admin-card p-4">
           <span className="text-xs font-medium text-slate-400">Total Stock</span>
           <p className="text-xl font-extrabold text-white mt-1.5">{totals.total.toLocaleString()} units</p>
@@ -116,7 +116,7 @@ export const Inventory = () => {
           <span className="text-[11px] text-rose-400/80 block mt-0.5">Below 15 units threshold</span>
         </div>
 
-        <div className="admin-card p-4">
+        <div className="admin-card p-4 col-span-2 sm:col-span-1">
           <span className="text-xs font-medium text-slate-400">Out of Stock</span>
           <p className="text-xl font-extrabold text-slate-400 mt-1.5">{totals.outCount} items</p>
           <span className="text-[11px] text-slate-500 block mt-0.5">Zero availability</span>
@@ -124,7 +124,7 @@ export const Inventory = () => {
       </div>
 
       {/* FILTER & SEARCH */}
-      <div className="admin-card p-3.5 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+      <div className="admin-card p-3.5 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs shrink-0">
         <div className="relative w-full sm:w-80">
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
@@ -151,20 +151,20 @@ export const Inventory = () => {
       </div>
 
       {/* INVENTORY TABLE WITH EXPANDABLE VARIANTS */}
-      <div className="admin-card overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left">
-            <thead>
-              <tr>
-                <th className="table-th">Product & SKU</th>
-                <th className="table-th">Category</th>
-                <th className="table-th text-center">Available</th>
-                <th className="table-th text-center">Reserved</th>
-                <th className="table-th text-center">Total</th>
-                <th className="table-th">Threshold</th>
-                <th className="table-th">Status</th>
-                <th className="table-th">Last Restocked</th>
-                <th className="table-th text-right">Quick Adjust</th>
+      <div className="admin-card overflow-hidden w-full max-w-full min-w-0 border border-slate-800/80 rounded-2xl shadow-xl flex flex-col flex-1 min-h-0">
+        <div className="overflow-x-auto overflow-y-auto flex-1 min-h-[280px] max-h-[58vh] lg:max-h-none w-full max-w-full min-w-0 touch-pan-x overscroll-contain relative border-b border-slate-800/60">
+          <table className="w-full text-left border-separate border-spacing-0">
+            <thead className="sticky top-0 z-20 shadow-md">
+              <tr className="bg-[#0F172A] text-slate-300">
+                <th className="table-th sticky top-0 z-20 bg-[#0F172A] border-b border-slate-800 shadow-sm">Product & SKU</th>
+                <th className="table-th sticky top-0 z-20 bg-[#0F172A] border-b border-slate-800 shadow-sm">Category</th>
+                <th className="table-th sticky top-0 z-20 bg-[#0F172A] text-center border-b border-slate-800 shadow-sm">Available</th>
+                <th className="table-th sticky top-0 z-20 bg-[#0F172A] text-center border-b border-slate-800 shadow-sm">Reserved</th>
+                <th className="table-th sticky top-0 z-20 bg-[#0F172A] text-center border-b border-slate-800 shadow-sm">Total</th>
+                <th className="table-th sticky top-0 z-20 bg-[#0F172A] border-b border-slate-800 shadow-sm">Threshold</th>
+                <th className="table-th sticky top-0 z-20 bg-[#0F172A] border-b border-slate-800 shadow-sm">Status</th>
+                <th className="table-th sticky top-0 z-20 bg-[#0F172A] border-b border-slate-800 shadow-sm">Last Restocked</th>
+                <th className="table-th sticky top-0 z-20 bg-[#0F172A] text-right border-b border-slate-800 shadow-sm">Quick Adjust</th>
               </tr>
             </thead>
             <tbody>

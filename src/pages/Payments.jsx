@@ -51,9 +51,9 @@ export const Payments = () => {
     .reduce((acc, p) => acc + p.amount, 0);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3 sm:space-y-4 w-full max-w-full min-w-0 flex flex-col lg:h-[calc(100vh-7.5rem)] lg:max-h-[calc(100vh-7.5rem)]">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0">
         <div>
           <h1 className="text-2xl font-black tracking-tight text-white">Payments & Settlements</h1>
           <p className="text-xs sm:text-sm text-slate-400 mt-1">
@@ -63,14 +63,14 @@ export const Payments = () => {
 
         <button
           onClick={() => showToast('Exported payment settlements report (CSV)')}
-          className="btn-secondary py-1.5 px-3 text-xs"
+          className="btn-secondary py-1.5 px-3 text-xs shrink-0"
         >
           <Download className="w-3.5 h-3.5" /> Export Settlements (CSV)
         </button>
       </div>
 
       {/* METRIC STRIP */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 shrink-0">
         <div className="admin-card p-4">
           <span className="text-xs text-slate-400 font-medium">Settled to Bank (Net)</span>
           <p className="text-xl font-black text-emerald-400 mt-1.5">₹{totalSettled.toLocaleString()}</p>
@@ -97,7 +97,7 @@ export const Payments = () => {
       </div>
 
       {/* TABS & SEARCH */}
-      <div className="admin-card p-3.5 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+      <div className="admin-card p-3.5 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs shrink-0">
         <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0">
           {['All', 'Paid', 'Pending', 'COD', 'Online', 'Refunded', 'Failed'].map((tab) => (
             <button
@@ -126,19 +126,19 @@ export const Payments = () => {
       </div>
 
       {/* PAYMENTS TABLE */}
-      <div className="admin-card overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left">
-            <thead>
-              <tr>
-                <th className="table-th">Transaction ID</th>
-                <th className="table-th">Order ID</th>
-                <th className="table-th">Customer</th>
-                <th className="table-th">Method / Gateway</th>
-                <th className="table-th">Bank RRN / Ref</th>
-                <th className="table-th text-right">Amount</th>
-                <th className="table-th">Status</th>
-                <th className="table-th">Timestamp</th>
+      <div className="admin-card overflow-hidden w-full max-w-full min-w-0 border border-slate-800/80 rounded-2xl shadow-xl flex flex-col flex-1 min-h-0">
+        <div className="overflow-x-auto overflow-y-auto flex-1 min-h-[300px] max-h-[60vh] lg:max-h-none w-full max-w-full min-w-0 touch-pan-x overscroll-contain relative border-b border-slate-800/60">
+          <table className="w-full text-left border-separate border-spacing-0">
+            <thead className="sticky top-0 z-20 shadow-md">
+              <tr className="bg-[#0F172A] text-slate-300">
+                <th className="table-th sticky top-0 z-20 bg-[#0F172A] border-b border-slate-800 shadow-sm">Transaction ID</th>
+                <th className="table-th sticky top-0 z-20 bg-[#0F172A] border-b border-slate-800 shadow-sm">Order ID</th>
+                <th className="table-th sticky top-0 z-20 bg-[#0F172A] border-b border-slate-800 shadow-sm">Customer</th>
+                <th className="table-th sticky top-0 z-20 bg-[#0F172A] border-b border-slate-800 shadow-sm">Method / Gateway</th>
+                <th className="table-th sticky top-0 z-20 bg-[#0F172A] border-b border-slate-800 shadow-sm">Bank RRN / Ref</th>
+                <th className="table-th sticky top-0 z-20 bg-[#0F172A] text-right border-b border-slate-800 shadow-sm">Amount</th>
+                <th className="table-th sticky top-0 z-20 bg-[#0F172A] border-b border-slate-800 shadow-sm">Status</th>
+                <th className="table-th sticky top-0 z-20 bg-[#0F172A] border-b border-slate-800 shadow-sm">Timestamp</th>
               </tr>
             </thead>
             <tbody>
@@ -181,6 +181,10 @@ export const Payments = () => {
               ))}
             </tbody>
           </table>
+        </div>
+        <div className="p-3.5 border-t border-slate-800/80 text-xs text-slate-400 flex justify-between items-center shrink-0 bg-slate-900/90">
+          <span>Showing {filteredPayments.length} of {payments.length} transactions</span>
+          <span className="text-[11px] text-slate-500">100% encrypted bank reconciliation</span>
         </div>
       </div>
     </div>

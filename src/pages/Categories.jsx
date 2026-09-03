@@ -73,9 +73,9 @@ export const Categories = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3 sm:space-y-4 w-full max-w-full min-w-0 flex flex-col lg:h-[calc(100vh-7.5rem)] lg:max-h-[calc(100vh-7.5rem)]">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0">
         <div>
           <h1 className="text-2xl font-black tracking-tight text-white">Categories & Collections</h1>
           <p className="text-xs sm:text-sm text-slate-400 mt-1">
@@ -83,13 +83,14 @@ export const Categories = () => {
           </p>
         </div>
 
-        <button onClick={handleOpenNewCategory} className="btn-primary py-2 px-4 text-xs font-bold">
+        <button onClick={handleOpenNewCategory} className="btn-primary py-2 px-4 text-xs font-bold shrink-0">
           <Plus className="w-4 h-4" /> Add New Category
         </button>
       </div>
 
       {/* CATEGORIES GRID */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+      <div className="flex-1 min-h-0 overflow-y-auto pr-1">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 pb-2">
         {categoriesWithCounts.map((cat) => (
           <div key={cat.id} className="admin-card p-5 flex flex-col justify-between group admin-card-hover">
             <div>
@@ -165,6 +166,7 @@ export const Categories = () => {
             </div>
           </div>
         ))}
+        </div>
       </div>
 
       {/* EDIT / CREATE CATEGORY MODAL */}

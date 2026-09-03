@@ -46,9 +46,9 @@ export const Customers = () => {
   }, [selectedCustomer, orders]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3 sm:space-y-4 w-full max-w-full min-w-0 flex flex-col lg:h-[calc(100vh-7.5rem)] lg:max-h-[calc(100vh-7.5rem)]">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0">
         <div>
           <h1 className="text-2xl font-black tracking-tight text-white">Customers & Artisans Directory</h1>
           <p className="text-xs sm:text-sm text-slate-400 mt-1">
@@ -58,7 +58,7 @@ export const Customers = () => {
       </div>
 
       {/* TABS & SEARCH */}
-      <div className="admin-card p-3.5 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+      <div className="admin-card p-3.5 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs shrink-0">
         <div className="flex items-center gap-1.5 w-full sm:w-auto">
           {['All', 'VIP', 'New'].map((tab) => (
             <button
@@ -89,19 +89,19 @@ export const Customers = () => {
       </div>
 
       {/* CUSTOMERS TABLE */}
-      <div className="admin-card overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left">
-            <thead>
-              <tr>
-                <th className="table-th">Customer Name</th>
-                <th className="table-th">Contact Info</th>
-                <th className="table-th">Location</th>
-                <th className="table-th text-center">Total Orders</th>
-                <th className="table-th text-right">Lifetime Spend</th>
-                <th className="table-th">Customer Tags</th>
-                <th className="table-th">Joined Date</th>
-                <th className="table-th text-right">Actions</th>
+      <div className="admin-card overflow-hidden w-full max-w-full min-w-0 border border-slate-800/80 rounded-2xl shadow-xl flex flex-col flex-1 min-h-0">
+        <div className="overflow-x-auto overflow-y-auto flex-1 min-h-[320px] max-h-[62vh] lg:max-h-none w-full max-w-full min-w-0 touch-pan-x overscroll-contain relative border-b border-slate-800/60">
+          <table className="w-full text-left border-separate border-spacing-0">
+            <thead className="sticky top-0 z-20 shadow-md">
+              <tr className="bg-[#0F172A] text-slate-300">
+                <th className="table-th sticky top-0 z-20 bg-[#0F172A] border-b border-slate-800 shadow-sm">Customer Name</th>
+                <th className="table-th sticky top-0 z-20 bg-[#0F172A] border-b border-slate-800 shadow-sm">Contact Info</th>
+                <th className="table-th sticky top-0 z-20 bg-[#0F172A] border-b border-slate-800 shadow-sm">Location</th>
+                <th className="table-th sticky top-0 z-20 bg-[#0F172A] text-center border-b border-slate-800 shadow-sm">Total Orders</th>
+                <th className="table-th sticky top-0 z-20 bg-[#0F172A] text-right border-b border-slate-800 shadow-sm">Lifetime Spend</th>
+                <th className="table-th sticky top-0 z-20 bg-[#0F172A] border-b border-slate-800 shadow-sm">Customer Tags</th>
+                <th className="table-th sticky top-0 z-20 bg-[#0F172A] border-b border-slate-800 shadow-sm">Joined Date</th>
+                <th className="table-th sticky top-0 z-20 bg-[#0F172A] text-right border-b border-slate-800 shadow-sm">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -171,6 +171,10 @@ export const Customers = () => {
               ))}
             </tbody>
           </table>
+        </div>
+        <div className="p-3.5 border-t border-slate-800/80 text-xs text-slate-400 flex justify-between items-center shrink-0 bg-slate-900/90">
+          <span>Showing {filteredCustomers.length} of {customers.length} registered customers</span>
+          <span className="text-[11px] text-slate-500">Click View Profile to see complete order history</span>
         </div>
       </div>
 
