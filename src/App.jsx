@@ -3,7 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AdminProvider } from './context/AdminContext.jsx';
 import { Layout } from './components/layout/Layout.jsx';
 
-// Core Pages
+// Core Operations Pages
 import { Dashboard } from './pages/Dashboard.jsx';
 import { Orders } from './pages/Orders.jsx';
 import { Shipping } from './pages/Shipping.jsx';
@@ -17,12 +17,18 @@ import { Coupons } from './pages/Coupons.jsx';
 import { Reports } from './pages/Reports.jsx';
 import { Settings } from './pages/Settings.jsx';
 
+// CMS Pages
+import { HomePageCms } from './pages/cms/HomePageCms.jsx';
+import { BlogManagementCms } from './pages/cms/BlogManagementCms.jsx';
+import { StaticPagesCms } from './pages/cms/StaticPagesCms.jsx';
+
 export default function App() {
   return (
     <AdminProvider>
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Layout />}>
+            {/* Core Operations */}
             <Route index element={<Dashboard />} />
             <Route path="orders" element={<Orders />} />
             <Route path="shipping" element={<Shipping />} />
@@ -36,6 +42,14 @@ export default function App() {
             <Route path="coupons" element={<Coupons />} />
             <Route path="reports" element={<Reports />} />
             <Route path="settings" element={<Settings />} />
+
+            {/* Storefront CMS */}
+            <Route path="cms" element={<Navigate to="/cms/home" replace />} />
+            <Route path="cms/home" element={<HomePageCms />} />
+            <Route path="cms/blogs" element={<BlogManagementCms />} />
+            <Route path="cms/pages" element={<StaticPagesCms />} />
+
+            {/* Fallback */}
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         </Routes>

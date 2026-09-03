@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import initialProductsList from '../data/products.js';
 import initialCategoriesList from '../data/categories.js';
 import { initialOrders, calculateOrderTotal } from '../data/orders.js';
@@ -7,6 +7,13 @@ import { initialCoupons } from '../data/coupons.js';
 import { initialPayments } from '../data/payments.js';
 import { initialReturns } from '../data/returns.js';
 import { initialInventory, initialStockLogs } from '../data/inventory.js';
+import { cmsService } from '../services/cmsService.js';
+import {
+  initialHeroSlides,
+  initialHomeSections,
+  initialCmsBlogs,
+  initialCmsPages
+} from '../data/initialCmsData.js';
 
 const AdminContext = createContext();
 
@@ -22,12 +29,49 @@ export const AdminProvider = ({ children }) => {
   const [inventory, setInventory] = useState(initialInventory);
   const [stockLogs, setStockLogs] = useState(initialStockLogs);
 
+  // ─── CMS STATES (HERO SLIDES, HOME SECTIONS, BLOGS, PAGES) ───
+  const [cmsHeroSlides, setCmsHeroSlides] = useState(() => {
+    try {
+      const saved = localStorage.getItem('trio_cms_hero_slides_v1');
+      return saved ? JSON.parse(saved) : initialHeroSlides;
+    } catch {
+      return initialHeroSlides;
+    }
+  });
+
+  const [cmsHomeSections, setCmsHomeSections] = useState(() => {
+    try {
+      const saved = localStorage.getItem('trio_cms_home_sections_v1');
+      return saved ? JSON.parse(saved) : initialHomeSections;
+    } catch {
+      return initialHomeSections;
+    }
+  });
+
+  const [cmsBlogs, setCmsBlogs] = useState(() => {
+    try {
+      const saved = localStorage.getItem('trio_cms_blogs_v1');
+      return saved ? JSON.parse(saved) : initialCmsBlogs;
+    } catch {
+      return initialCmsBlogs;
+    }
+  });
+
+  const [cmsPages, setCmsPages] = useState(() => {
+    try {
+      const saved = localStorage.getItem('trio_cms_pages_v1');
+      return saved ? JSON.parse(saved) : initialCmsPages;
+    } catch {
+      return initialCmsPages;
+    }
+  });
+
   // UI States
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [globalSearch, setGlobalSearch] = useState('');
   const [toasts, setToasts] = useState([]);
-  const [printDocument, setPrintDocument] = useState(null); // { type: 'invoice'|'packing_slip'|'shipping_label', data: order|orders[] }
+  const [printDocument, setPrintDocument] = useState(null);
 
   // Toast Notification Helper
   const showToast = (message, type = 'success') => {
@@ -87,7 +131,6 @@ export const AdminProvider = ({ children }) => {
     setProducts((prev) =>
       prev.map((p) => (p.id === Number(id) ? { ...p, ...updatedFields } : p))
     );
-    // Sync with inventory
     setInventory((prev) =>
       prev.map((inv) => (inv.productId === Number(id) ? { ...inv, name: updatedFields.name || inv.name, price: updatedFields.price || inv.price } : inv))
     );
@@ -140,7 +183,6 @@ export const AdminProvider = ({ children }) => {
           const newTotal = newAvail + item.reservedStock;
           const status = newAvail === 0 ? 'Out of Stock' : (newAvail <= item.lowStockThreshold ? 'Low Stock' : 'In Stock');
 
-          // Log the adjustment
           const newLog = {
             id: `LOG-${Date.now()}`,
             date: new Date().toISOString().replace('T', ' ').substring(0, 16),
@@ -235,6 +277,94 @@ export const AdminProvider = ({ children }) => {
     showToast(`Return ${returnId} updated to ${newStatus}`);
   };
 
+  // ══════════════════════════════════════════════════════════════════════
+  // CMS ACTIONS (HERO SLIDES, HOME SECTIONS, BLOGS, PAGES)
+  // ══════════════════════════════════════════════════════════════════════
+
+  // 1. Hero Slides
+  const saveHeroSlide = async (slideData) => {
+    const updated = await cmsService.saveHeroSlide(slideData);
+    setCmsHeroSlides(updated);
+    showToast(slideData.id ? 'Hero Slide updated successfully' : 'New Hero Slide created');
+    return updated;
+  };
+
+  const deleteHeroSlide = async (id) => {
+    const updated = await cmsService.deleteHeroSlide(id);
+    setCmsHeroSlides(updated);
+    showToast('Hero Slide deleted', 'info');
+    return updated;
+  };
+
+  const toggleHeroSlideStatus = async (id) => {
+    const updated = await cmsService.toggleHeroSlideStatus(id);
+    setCmsHeroSlides(updated);
+    showToast('Slide visibility updated');
+    return updated;
+  };
+
+  const reorderHeroSlides = async (reorderedIds) => {
+    const updated = await cmsService.reorderHeroSlides(reorderedIds);
+    setCmsHeroSlides(updated);
+    showToast('Hero slides reordered');
+    return updated;
+  };
+
+  // 2. Home Sections
+  const updateHomeSection = async (sectionKey, newSectionData) => {
+    const updated = await cmsService.updateHomeSection(sectionKey, newSectionData);
+    setCmsHomeSections(updated);
+    showToast(`Section "${sectionKey}" updated successfully`);
+    return updated;
+  };
+
+  const toggleSectionVisibility = async (sectionKey) => {
+    const updated = await cmsService.toggleSectionVisibility(sectionKey);
+    setCmsHomeSections(updated);
+    showToast(`Section "${sectionKey}" visibility toggled`);
+    return updated;
+  };
+
+  // 3. Blog Articles
+  const saveBlog = async (blogData) => {
+    const updated = await cmsService.saveBlog(blogData);
+    setCmsBlogs(updated);
+    showToast(blogData.id ? 'Blog article updated' : 'New blog article published');
+    return updated;
+  };
+
+  const deleteBlog = async (id) => {
+    const updated = await cmsService.deleteBlog(id);
+    setCmsBlogs(updated);
+    showToast('Blog article deleted', 'info');
+    return updated;
+  };
+
+  const toggleBlogPublish = async (id) => {
+    const updated = await cmsService.toggleBlogPublish(id);
+    setCmsBlogs(updated);
+    showToast('Blog publish status toggled');
+    return updated;
+  };
+
+  // 4. Static Pages
+  const updatePage = async (pageKey, pageData) => {
+    const updated = await cmsService.updatePage(pageKey, pageData);
+    setCmsPages(updated);
+    showToast(`Page "${pageKey}" saved`);
+    return updated;
+  };
+
+  // 5. Reset All CMS Data
+  const resetCmsToDefaults = () => {
+    const defaults = cmsService.resetToDefaults();
+    setCmsHeroSlides(defaults.heroSlides);
+    setCmsHomeSections(defaults.homeSections);
+    setCmsBlogs(defaults.blogs);
+    setCmsPages(defaults.pages);
+    showToast('All CMS content reset to default authentic catalog settings', 'info');
+  };
+
   // Dashboard Aggregates & KPIs
   const stats = useMemo(() => {
     let totalRevenue = 0;
@@ -286,7 +416,7 @@ export const AdminProvider = ({ children }) => {
 
     return {
       totalRevenue,
-      todayRevenue: todayRevenue || 931, // realistic fallback for today
+      todayRevenue: todayRevenue || 931,
       statusCounts,
       totalCustomers: customers.length,
       lowStockCount,
@@ -310,7 +440,13 @@ export const AdminProvider = ({ children }) => {
         stockLogs,
         stats,
 
-        // Actions
+        // CMS Data
+        cmsHeroSlides,
+        cmsHomeSections,
+        cmsBlogs,
+        cmsPages,
+
+        // Core Actions
         addProduct,
         updateProduct,
         deleteProduct,
@@ -325,6 +461,19 @@ export const AdminProvider = ({ children }) => {
         toggleCouponStatus,
         deleteCoupon,
         updateReturnStatus,
+
+        // CMS Actions
+        saveHeroSlide,
+        deleteHeroSlide,
+        toggleHeroSlideStatus,
+        reorderHeroSlides,
+        updateHomeSection,
+        toggleSectionVisibility,
+        saveBlog,
+        deleteBlog,
+        toggleBlogPublish,
+        updatePage,
+        resetCmsToDefaults,
 
         // UI & Modals
         sidebarCollapsed,
