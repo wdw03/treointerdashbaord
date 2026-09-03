@@ -84,30 +84,30 @@ export const Header = () => {
     <header
       className={`
         sticky top-0 z-30 h-16 bg-[#0B0F19]/80 backdrop-blur-xl border-b border-slate-800/80
-        flex items-center justify-between px-4 sm:px-6 transition-all duration-300
+        flex items-center justify-between px-2.5 sm:px-6 transition-all duration-300 w-full max-w-full min-w-0
         ${sidebarCollapsed ? 'lg:ml-20' : 'lg:ml-64'}
       `}
     >
       {/* Left: Mobile Toggle & Global Search Bar */}
-      <div className="flex items-center gap-3 flex-1 max-w-xl">
+      <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0 max-w-xl">
         <button
           onClick={() => setMobileMenuOpen(true)}
-          className="lg:hidden p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl"
+          className="lg:hidden p-1.5 sm:p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl shrink-0"
         >
           <Menu className="w-5 h-5" />
         </button>
 
         {/* Search Bar Container */}
-        <div ref={searchRef} className="relative w-full">
+        <div ref={searchRef} className="relative w-full min-w-0">
           <div className="relative">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 sm:left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               type="text"
               value={globalSearch}
               onChange={(e) => setGlobalSearch(e.target.value)}
               onFocus={() => setSearchFocused(true)}
-              placeholder="Search by Order ID, Product, Customer, SKU..."
-              className="w-full bg-slate-900/90 border border-slate-800 rounded-xl pl-10 pr-9 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500/80 focus:ring-2 focus:ring-indigo-500/20 transition-all"
+              placeholder="Search orders, products, customers..."
+              className="w-full bg-slate-900/90 border border-slate-800 rounded-xl pl-8 sm:pl-10 pr-8 sm:pr-9 py-1.5 sm:py-2 text-xs sm:text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500/80 focus:ring-2 focus:ring-indigo-500/20 transition-all"
             />
             {globalSearch && (
               <button
