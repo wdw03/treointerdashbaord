@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useAdmin } from '../context/AdminContext.jsx';
 import { ProductImage } from '../components/ui/ProductImage.jsx';
 import { calculateOrderTotal, ORDER_STATUSES } from '../data/orders.js';
@@ -18,7 +18,9 @@ import {
   ArrowUpDown,
   MoreVertical,
   X,
-  ArrowRightLeft
+  ArrowRightLeft,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 
 export const Orders = () => {
@@ -32,6 +34,61 @@ export const Orders = () => {
   const [selectedOrders, setSelectedOrders] = useState([]);
   const [selectedOrderDetails, setSelectedOrderDetails] = useState(null); // for modal view
   const [sortBy, setSortBy] = useState('date_desc');
+
+  // Scroll controls for horizontal status tabs
+  const tabsContainerRef = useRef(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+
+  const checkScrollButtons = () => {
+    const el = tabsContainerRef.current;
+    if (!el) return;
+    const hasScrollLeft = el.scrollLeft > 6;
+    const hasScrollRight = el.scrollLeft + el.clientWidth < el.scrollWidth - 12;
+    setCanScrollLeft(hasScrollLeft);
+    setCanScrollRight(hasScrollRight);
+  };
+
+  useEffect(() => {
+    const el = tabsContainerRef.current;
+    if (!el) return;
+
+    checkScrollButtons();
+
+    el.addEventListener('scroll', checkScrollButtons, { passive: true });
+    window.addEventListener('resize', checkScrollButtons);
+
+    const timer1 = setTimeout(checkScrollButtons, 50);
+    const timer2 = setTimeout(checkScrollButtons, 200);
+
+    return () => {
+      el.removeEventListener('scroll', checkScrollButtons);
+      window.removeEventListener('resize', checkScrollButtons);
+      clearTimeout(timer1);
+      clearTimeout(timer2);
+    };
+  }, [orders]);
+
+  const handleScroll = (direction) => {
+    const el = tabsContainerRef.current;
+    if (!el) return;
+    const scrollAmount = 280;
+    el.scrollBy({
+      left: direction === 'left' ? -scrollAmount : scrollAmount,
+      behavior: 'smooth'
+    });
+  };
+
+  const handleTabClick = (tab, e) => {
+    setActiveTab(tab);
+    if (e?.currentTarget) {
+      e.currentTarget.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+        inline: 'center'
+      });
+    }
+  };
 
   // Filter and sort orders
   const filteredOrders = useMemo(() => {
@@ -153,36 +210,80 @@ export const Orders = () => {
         )}
       </div>
 
-      {/* HORIZONTAL STATUS TABS (All 12 status options + counts) */}
-      <div className="w-full max-w-full overflow-x-auto pb-1.5 border-b border-slate-800 text-xs no-scrollbar touch-pan-x min-w-0">
-        <div className="flex items-center gap-1.5 w-max">
-          {['All', ...ORDER_STATUSES].map((tab) => {
-            const count = tab === 'All'
-              ? orders.length
-              : orders.filter((o) => o.status === tab).length;
+      {/* HORIZONTAL STATUS TABS (Single row with smooth scroll & left/right buttons) */}
+      <div className="relative w-full max-w-full min-w-0 border-b border-slate-800/80 pb-2 group">
+        {/* Left Scroll Button */}
+        {canScrollLeft && (
+          <div className="absolute left-0 top-0 bottom-2 z-10 flex items-center pr-6 bg-gradient-to-r from-[#0B0F19] via-[#0B0F19]/90 to-transparent pointer-events-none">
+            <button
+              type="button"
+              onClick={() => handleScroll('left')}
+              className="pointer-events-auto w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-slate-900/95 border border-slate-700/80 hover:border-indigo-500/60 text-slate-300 hover:text-white hover:bg-slate-800 shadow-lg shadow-black/60 flex items-center justify-center transition-all duration-150 active:scale-90"
+              title="Scroll Left"
+              aria-label="Scroll tabs left"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+          </div>
+        )}
 
-            const isActive = activeTab === tab;
+        {/* Scrollable Tabs Container */}
+        <div
+          ref={tabsContainerRef}
+          onScroll={checkScrollButtons}
+          className="w-full max-w-full overflow-x-auto no-scrollbar scroll-smooth touch-pan-x min-w-0 py-0.5"
+        >
+          <div className="flex items-center gap-1.5 w-max pl-1 pr-14">
+            {['All', ...ORDER_STATUSES].map((tab) => {
+              const count = tab === 'All'
+                ? orders.length
+                : orders.filter((o) => o.status === tab).length;
 
-            return (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`
-                  px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl font-medium whitespace-nowrap transition-all duration-150 flex items-center gap-1.5 text-xs shrink-0
-                  ${isActive
-                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
-                    : 'bg-slate-900/80 text-slate-400 hover:text-slate-200 hover:bg-slate-800'
-                  }
-                `}
-              >
-                <span>{tab}</span>
-                <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${isActive ? 'bg-white/20 text-white' : 'bg-slate-800 text-slate-400'}`}>
-                  {count}
-                </span>
-              </button>
-            );
-          })}
+              const isActive = activeTab === tab;
+
+              return (
+                <button
+                  key={tab}
+                  type="button"
+                  onClick={(e) => handleTabClick(tab, e)}
+                  className={`
+                    px-3 py-1.5 sm:py-2 rounded-xl font-medium whitespace-nowrap transition-all duration-150 flex items-center gap-1.5 text-xs shrink-0 select-none
+                    ${isActive
+                      ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30 font-semibold'
+                      : 'bg-slate-900/80 text-slate-400 hover:text-slate-200 hover:bg-slate-800 border border-slate-800/60'
+                    }
+                  `}
+                >
+                  <span>{tab}</span>
+                  <span
+                    className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                      isActive
+                        ? 'bg-white/20 text-white'
+                        : 'bg-slate-800 text-slate-400'
+                    }`}
+                  >
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         </div>
+
+        {/* Right Scroll Button */}
+        {canScrollRight && (
+          <div className="absolute right-0 top-0 bottom-2 z-10 flex items-center pl-6 bg-gradient-to-l from-[#0B0F19] via-[#0B0F19]/90 to-transparent pointer-events-none">
+            <button
+              type="button"
+              onClick={() => handleScroll('right')}
+              className="pointer-events-auto w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-slate-900/95 border border-slate-700/80 hover:border-indigo-500/60 text-slate-300 hover:text-white hover:bg-slate-800 shadow-lg shadow-black/60 flex items-center justify-center transition-all duration-150 active:scale-90"
+              title="Scroll Right"
+              aria-label="Scroll tabs right"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* FILTER & SEARCH CONTROL STRIP */}

@@ -10,23 +10,23 @@ export const Layout = () => {
   const { sidebarCollapsed } = useAdmin();
 
   return (
-    <div className="min-h-screen bg-[#0B0F19] text-slate-100 flex flex-col font-sans overflow-x-hidden w-full max-w-full">
+    <div className="min-h-screen bg-[#0B0F19] text-slate-100 flex flex-col font-sans w-full max-w-full">
       {/* Fixed Sidebar */}
       <Sidebar />
 
-      {/* Main Column */}
-      <div className="flex-1 min-w-0 w-full max-w-full flex flex-col min-h-screen overflow-x-hidden">
+      {/* Main Column - Uses responsive padding-left for sidebar offset to prevent any right-side clipping */}
+      <div
+        className={`
+          flex-1 min-w-0 w-full max-w-full flex flex-col min-h-screen transition-all duration-300
+          ${sidebarCollapsed ? 'lg:pl-20' : 'lg:pl-64'}
+        `}
+      >
         {/* Top Header */}
         <Header />
 
         {/* Dynamic Page Content */}
-        <main
-          className={`
-            flex-1 min-w-0 w-full max-w-full p-3 sm:p-6 md:p-8 transition-all duration-300 overflow-x-hidden
-            ${sidebarCollapsed ? 'lg:ml-20' : 'lg:ml-64'}
-          `}
-        >
-          <div className="max-w-7xl mx-auto w-full min-w-0">
+        <main className="flex-1 min-w-0 w-full p-3 sm:p-6 lg:px-8 lg:py-6">
+          <div className="w-full min-w-0">
             <Outlet />
           </div>
         </main>

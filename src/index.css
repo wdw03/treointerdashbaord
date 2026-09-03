@@ -34,6 +34,15 @@
   ::-webkit-scrollbar-thumb:hover {
     background: #475569;
   }
+
+  /* Utility to hide native scrollbars cleanly */
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
 }
 
 @layer components {

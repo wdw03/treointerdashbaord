@@ -81,13 +81,7 @@ export const Header = () => {
   }, [globalSearch, orders, products, customers]);
 
   return (
-    <header
-      className={`
-        sticky top-0 z-30 h-16 bg-[#0B0F19]/80 backdrop-blur-xl border-b border-slate-800/80
-        flex items-center justify-between px-2.5 sm:px-6 transition-all duration-300 w-full max-w-full min-w-0
-        ${sidebarCollapsed ? 'lg:ml-20' : 'lg:ml-64'}
-      `}
-    >
+    <header className="sticky top-0 z-30 h-16 bg-[#0B0F19]/80 backdrop-blur-xl border-b border-slate-800/80 flex items-center justify-between px-3 sm:px-6 lg:px-8 transition-all duration-300 w-full max-w-full min-w-0">
       {/* Left: Mobile Toggle & Global Search Bar */}
       <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0 max-w-xl">
         <button
