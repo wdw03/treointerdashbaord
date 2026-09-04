@@ -29,6 +29,37 @@ export const AdminProvider = ({ children }) => {
   const [inventory, setInventory] = useState(initialInventory);
   const [stockLogs, setStockLogs] = useState(initialStockLogs);
 
+  // ─── SUPER ADMIN AUTHENTICATION STATE ───
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    try {
+      const session = localStorage.getItem('trio_superadmin_session');
+      return session ? JSON.parse(session)?.active === true : false;
+    } catch {
+      return false;
+    }
+  });
+
+  const [adminUser, setAdminUser] = useState(() => {
+    try {
+      const session = localStorage.getItem('trio_superadmin_session');
+      return session ? JSON.parse(session)?.user : {
+        name: 'Trio Super Admin',
+        email: 'admin@trioenterprises.com',
+        role: 'Super Admin',
+        avatar: 'SA',
+        lastLogin: new Date().toISOString()
+      };
+    } catch {
+      return {
+        name: 'Trio Super Admin',
+        email: 'admin@trioenterprises.com',
+        role: 'Super Admin',
+        avatar: 'SA',
+        lastLogin: new Date().toISOString()
+      };
+    }
+  });
+
   // ─── CMS STATES (HERO SLIDES, HOME SECTIONS, BLOGS, PAGES) ───
   const [cmsHeroSlides, setCmsHeroSlides] = useState(() => {
     try {
@@ -446,9 +477,84 @@ export const AdminProvider = ({ children }) => {
     };
   }, [orders, inventory, customers, products]);
 
+  // Super Admin Login Handler
+  const login = async (email, password, remember = true) => {
+    const cleanEmail = (email || '').trim().toLowerCase();
+    const cleanPass = (password || '').trim();
+
+    // Authorized Super Admin Logins
+    const validEmails = [
+      'admin@trioenterprises.com',
+      'superadmin@trioenterprises.com',
+      'admin@trio.com',
+      'admin'
+    ];
+    const validPasswords = [
+      'admin@trio2026',
+      'admin123',
+      'Admin@123',
+      'admin',
+      'superadmin'
+    ];
+
+    const isEmailValid = validEmails.includes(cleanEmail);
+    const isPasswordValid = validPasswords.includes(cleanPass);
+
+    if (isEmailValid && isPasswordValid) {
+      const userData = {
+        name: 'Trio Super Admin',
+        email: cleanEmail.includes('@') ? cleanEmail : 'admin@trioenterprises.com',
+        role: 'Super Admin',
+        avatar: 'SA',
+        lastLogin: new Date().toISOString()
+      };
+
+      const sessionData = {
+        active: true,
+        user: userData,
+        token: `trio_sa_${Date.now()}`
+      };
+
+      if (remember) {
+        localStorage.setItem('trio_superadmin_session', JSON.stringify(sessionData));
+      } else {
+        sessionStorage.setItem('trio_superadmin_session', JSON.stringify(sessionData));
+        localStorage.setItem('trio_superadmin_session', JSON.stringify(sessionData));
+      }
+
+      setAdminUser(userData);
+      setIsAuthenticated(true);
+      showToast('Welcome back, Super Admin! Access granted.', 'success');
+      return { success: true };
+    } else {
+      showToast('Access Denied: Invalid Super Admin credentials.', 'error');
+      return {
+        success: false,
+        error: 'Invalid credentials. Only authorized Super Admin can access.'
+      };
+    }
+  };
+
+  // Super Admin Logout Handler
+  const logout = () => {
+    try {
+      localStorage.removeItem('trio_superadmin_session');
+      sessionStorage.removeItem('trio_superadmin_session');
+    } catch (e) {
+      console.error(e);
+    }
+    setIsAuthenticated(false);
+    showToast('Logged out of Super Admin Portal.', 'info');
+  };
+
   return (
     <AdminContext.Provider
       value={{
+        // Authentication & Session
+        isAuthenticated,
+        adminUser,
+        login,
+        logout,
         // Data
         products,
         categories,

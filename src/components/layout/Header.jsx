@@ -14,7 +14,9 @@ import {
   ExternalLink,
   Package,
   RefreshCw,
-  X
+  X,
+  LogOut,
+  ShieldCheck
 } from 'lucide-react';
 
 export const Header = () => {
@@ -30,6 +32,8 @@ export const Header = () => {
     isLoading,
     isRefreshing,
     refreshData,
+    adminUser,
+    logout,
     showToast
   } = useAdmin();
 
@@ -281,20 +285,25 @@ export const Header = () => {
             className="flex items-center gap-2.5 p-1.5 pl-2 hover:bg-slate-800/80 rounded-xl transition-colors border border-transparent hover:border-slate-800"
           >
             <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-amber-500 to-indigo-600 flex items-center justify-center text-white text-xs font-bold shadow-md">
-              TE
+              {adminUser?.avatar || 'SA'}
             </div>
             <div className="hidden md:block text-left text-xs">
-              <span className="font-semibold text-slate-200 block leading-tight">Trio Ecart Admin</span>
-              <span className="text-[10px] text-slate-500 block leading-tight">Head Admin</span>
+              <span className="font-semibold text-slate-200 block leading-tight">{adminUser?.name || 'Trio Super Admin'}</span>
+              <span className="text-[10px] text-amber-400 font-semibold block leading-tight">Super Admin</span>
             </div>
             <ChevronDown className="w-3.5 h-3.5 text-slate-500 hidden md:block" />
           </button>
 
           {showProfileMenu && (
-            <div className="absolute right-0 mt-2 w-52 bg-slate-900 border border-slate-700/80 rounded-2xl shadow-2xl p-2 z-50 text-xs animate-scaleIn">
-              <div className="p-2 border-b border-slate-800 mb-1">
-                <p className="font-semibold text-slate-100">Trio Ecart Store</p>
-                <p className="text-[11px] text-slate-500">admin@trioecart.com</p>
+            <div className="absolute right-0 mt-2 w-60 bg-slate-900 border border-slate-700/80 rounded-2xl shadow-2xl p-2 z-50 text-xs animate-scaleIn">
+              <div className="p-2.5 border-b border-slate-800 mb-1">
+                <div className="flex items-center justify-between">
+                  <p className="font-bold text-slate-100">{adminUser?.name || 'Trio Super Admin'}</p>
+                  <span className="bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase">
+                    Super Admin
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-400 font-mono truncate mt-0.5">{adminUser?.email || 'admin@trioenterprises.com'}</p>
               </div>
               <button
                 onClick={() => { navigate('/settings'); setShowProfileMenu(false); }}
@@ -311,6 +320,19 @@ export const Header = () => {
               >
                 View Live Store <ExternalLink className="w-3 h-3 text-slate-500" />
               </button>
+              <div className="pt-1 mt-1 border-t border-slate-800/80">
+                <button
+                  onClick={() => {
+                    setShowProfileMenu(false);
+                    logout();
+                    navigate('/login');
+                  }}
+                  className="w-full text-left px-3 py-2 text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 rounded-lg transition-colors flex items-center justify-between font-semibold"
+                >
+                  <span>Log Out (Super Admin)</span>
+                  <LogOut className="w-3.5 h-3.5" />
+                </button>
+              </div>
             </div>
           )}
         </div>

@@ -2,6 +2,10 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AdminProvider } from './context/AdminContext.jsx';
 import { Layout } from './components/layout/Layout.jsx';
+import { ProtectedRoute } from './components/auth/ProtectedRoute.jsx';
+
+// Auth Page
+import { Login } from './pages/Login.jsx';
 
 // Core Operations Pages
 import { Dashboard } from './pages/Dashboard.jsx';
@@ -27,7 +31,18 @@ export default function App() {
     <AdminProvider>
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<Layout />}>
+          {/* Public Super Admin Login */}
+          <Route path="/login" element={<Login />} />
+
+          {/* Protected Dashboard Management Routes */}
+          <Route
+            path="/"
+            element={
+              <ProtectedRoute>
+                <Layout />
+              </ProtectedRoute>
+            }
+          >
             {/* Core Operations */}
             <Route index element={<Dashboard />} />
             <Route path="orders" element={<Orders />} />
