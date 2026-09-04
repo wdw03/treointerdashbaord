@@ -66,12 +66,33 @@ export const AdminProvider = ({ children }) => {
     }
   });
 
-  // UI States
+  // UI & Loading States
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [globalSearch, setGlobalSearch] = useState('');
   const [toasts, setToasts] = useState([]);
   const [printDocument, setPrintDocument] = useState(null);
+
+  // Initial simulated fetch
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 550);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Manual trigger to simulate real-time API refetch & show skeleton loading
+  const refreshData = (customDuration = 600) => {
+    setIsRefreshing(true);
+    setIsLoading(true);
+    setTimeout(() => {
+      setIsLoading(false);
+      setIsRefreshing(false);
+      showToast('Live dashboard data synchronized!', 'info');
+    }, customDuration);
+  };
 
   // Toast Notification Helper
   const showToast = (message, type = 'success') => {
@@ -475,13 +496,17 @@ export const AdminProvider = ({ children }) => {
         updatePage,
         resetCmsToDefaults,
 
-        // UI & Modals
+        // UI & Modals & Loading
         sidebarCollapsed,
         setSidebarCollapsed,
         mobileMenuOpen,
         setMobileMenuOpen,
         globalSearch,
         setGlobalSearch,
+        isLoading,
+        setIsLoading,
+        isRefreshing,
+        refreshData,
         toasts,
         showToast,
         removeToast,

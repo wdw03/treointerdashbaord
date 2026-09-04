@@ -3,6 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import { useAdmin } from '../context/AdminContext.jsx';
 import { ProductImage } from '../components/ui/ProductImage.jsx';
 import { calculateOrderTotal } from '../data/orders.js';
+import { usePageLoading } from '../hooks/usePageLoading.js';
+import {
+  Skeleton,
+  SkeletonCircle,
+  MetricCardSkeleton,
+  ChartCardSkeleton
+} from '../components/ui/Skeleton.jsx';
 import gsap from 'gsap';
 import {
   TrendingUp,
@@ -64,10 +71,13 @@ const categorySalesData = [
 
 export const Dashboard = () => {
   const { stats, orders, products, customers, setPrintDocument } = useAdmin();
+  const isPageLoading = usePageLoading(450);
   const navigate = useNavigate();
   const containerRef = useRef(null);
 
   useEffect(() => {
+    if (isPageLoading) return;
+
     // GSAP entrance animation
     const ctx = gsap.context(() => {
       gsap.from('.dash-metric-card', {
@@ -81,14 +91,14 @@ export const Dashboard = () => {
         y: 25,
         opacity: 0,
         duration: 0.5,
-        delay: 0.2,
+        delay: 0.1,
         stagger: 0.1,
         ease: 'power2.out'
       });
     }, containerRef);
 
     return () => ctx.revert();
-  }, []);
+  }, [isPageLoading]);
 
   // Top 5 selling craft products from catalog
   const topProducts = [
@@ -134,69 +144,77 @@ export const Dashboard = () => {
 
       {/* CORE METRICS GRID (Revenue, Orders, Customers, Inventory) */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5">
-        {/* Total Revenue */}
-        <div className="dash-metric-card admin-card p-4 relative overflow-hidden group">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-400">Total Revenue</span>
-            <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-              <DollarSign className="w-4 h-4" />
+        {isPageLoading ? (
+          Array.from({ length: 5 }).map((_, i) => (
+            <MetricCardSkeleton key={i} />
+          ))
+        ) : (
+          <>
+            {/* Total Revenue */}
+            <div className="dash-metric-card admin-card p-4 relative overflow-hidden group">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-slate-400">Total Revenue</span>
+                <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                  <DollarSign className="w-4 h-4" />
+                </div>
+              </div>
+              <p className="text-xl font-extrabold text-white mt-2">₹{stats.totalRevenue.toLocaleString()}</p>
+              <div className="flex items-center gap-1 text-[11px] text-emerald-400 font-medium mt-1">
+                <TrendingUp className="w-3 h-3" /> +18.4% this month
+              </div>
+              <div className="absolute -bottom-6 -right-6 w-20 h-20 bg-emerald-500/5 rounded-full blur-xl group-hover:bg-emerald-500/10 transition-colors" />
             </div>
-          </div>
-          <p className="text-xl font-extrabold text-white mt-2">₹{stats.totalRevenue.toLocaleString()}</p>
-          <div className="flex items-center gap-1 text-[11px] text-emerald-400 font-medium mt-1">
-            <TrendingUp className="w-3 h-3" /> +18.4% this month
-          </div>
-          <div className="absolute -bottom-6 -right-6 w-20 h-20 bg-emerald-500/5 rounded-full blur-xl group-hover:bg-emerald-500/10 transition-colors" />
-        </div>
 
-        {/* Today's Revenue */}
-        <div className="dash-metric-card admin-card p-4 relative overflow-hidden group">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-400">Today's Revenue</span>
-            <div className="p-2 rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-              <Sparkles className="w-4 h-4" />
+            {/* Today's Revenue */}
+            <div className="dash-metric-card admin-card p-4 relative overflow-hidden group">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-slate-400">Today's Revenue</span>
+                <div className="p-2 rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                  <Sparkles className="w-4 h-4" />
+                </div>
+              </div>
+              <p className="text-xl font-extrabold text-white mt-2">₹{stats.todayRevenue.toLocaleString()}</p>
+              <p className="text-[11px] text-slate-400 mt-1">From 2 new orders today</p>
+              <div className="absolute -bottom-6 -right-6 w-20 h-20 bg-indigo-500/5 rounded-full blur-xl group-hover:bg-indigo-500/10 transition-colors" />
             </div>
-          </div>
-          <p className="text-xl font-extrabold text-white mt-2">₹{stats.todayRevenue.toLocaleString()}</p>
-          <p className="text-[11px] text-slate-400 mt-1">From 2 new orders today</p>
-          <div className="absolute -bottom-6 -right-6 w-20 h-20 bg-indigo-500/5 rounded-full blur-xl group-hover:bg-indigo-500/10 transition-colors" />
-        </div>
 
-        {/* Total Orders */}
-        <div className="dash-metric-card admin-card p-4 relative overflow-hidden group">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-400">Total Orders</span>
-            <div className="p-2 rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/20">
-              <ShoppingBag className="w-4 h-4" />
+            {/* Total Orders */}
+            <div className="dash-metric-card admin-card p-4 relative overflow-hidden group">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-slate-400">Total Orders</span>
+                <div className="p-2 rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                  <ShoppingBag className="w-4 h-4" />
+                </div>
+              </div>
+              <p className="text-xl font-extrabold text-white mt-2">{stats.statusCounts.total}</p>
+              <p className="text-[11px] text-indigo-400 font-medium mt-1">{stats.statusCounts.new} awaiting dispatch</p>
             </div>
-          </div>
-          <p className="text-xl font-extrabold text-white mt-2">{stats.statusCounts.total}</p>
-          <p className="text-[11px] text-indigo-400 font-medium mt-1">{stats.statusCounts.new} awaiting dispatch</p>
-        </div>
 
-        {/* Total Customers */}
-        <div className="dash-metric-card admin-card p-4 relative overflow-hidden group">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-400">Total Customers</span>
-            <div className="p-2 rounded-xl bg-purple-500/10 text-purple-400 border border-purple-500/20">
-              <Users className="w-4 h-4" />
+            {/* Total Customers */}
+            <div className="dash-metric-card admin-card p-4 relative overflow-hidden group">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-slate-400">Total Customers</span>
+                <div className="p-2 rounded-xl bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                  <Users className="w-4 h-4" />
+                </div>
+              </div>
+              <p className="text-xl font-extrabold text-white mt-2">{stats.totalCustomers}</p>
+              <p className="text-[11px] text-purple-400 font-medium mt-1">68% repeat artisans</p>
             </div>
-          </div>
-          <p className="text-xl font-extrabold text-white mt-2">{stats.totalCustomers}</p>
-          <p className="text-[11px] text-purple-400 font-medium mt-1">68% repeat artisans</p>
-        </div>
 
-        {/* Low / Out of Stock Alert */}
-        <div className="dash-metric-card admin-card p-4 relative overflow-hidden group border-rose-500/20">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-400">Stock Alerts</span>
-            <div className="p-2 rounded-xl bg-rose-500/10 text-rose-400 border border-rose-500/20">
-              <AlertTriangle className="w-4 h-4" />
+            {/* Low / Out of Stock Alert */}
+            <div className="dash-metric-card admin-card p-4 relative overflow-hidden group border-rose-500/20">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-slate-400">Stock Alerts</span>
+                <div className="p-2 rounded-xl bg-rose-500/10 text-rose-400 border border-rose-500/20">
+                  <AlertTriangle className="w-4 h-4" />
+                </div>
+              </div>
+              <p className="text-xl font-extrabold text-rose-400 mt-2">{stats.lowStockCount} Low</p>
+              <p className="text-[11px] text-rose-300/80 font-medium mt-1">{stats.outOfStockCount} Out of stock</p>
             </div>
-          </div>
-          <p className="text-xl font-extrabold text-rose-400 mt-2">{stats.lowStockCount} Low</p>
-          <p className="text-[11px] text-rose-300/80 font-medium mt-1">{stats.outOfStockCount} Out of stock</p>
-        </div>
+          </>
+        )}
       </div>
 
       {/* DETAILED ORDER PIPELINE STATUS STRIP (All 10 required order statuses) */}
@@ -208,55 +226,77 @@ export const Dashboard = () => {
           </span>
         </h3>
         <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-10 gap-2.5">
-          <div onClick={() => navigate('/orders')} className="p-2.5 bg-slate-900 rounded-xl border border-slate-800 text-center hover:border-indigo-500/50 cursor-pointer transition-all">
-            <span className="text-[10px] text-slate-400 block font-medium">New</span>
-            <span className="text-lg font-bold text-indigo-400">{stats.statusCounts.new}</span>
-          </div>
-          <div onClick={() => navigate('/orders')} className="p-2.5 bg-slate-900 rounded-xl border border-slate-800 text-center hover:border-indigo-500/50 cursor-pointer transition-all">
-            <span className="text-[10px] text-slate-400 block font-medium">Confirmed</span>
-            <span className="text-lg font-bold text-blue-400">{stats.statusCounts.confirmed}</span>
-          </div>
-          <div onClick={() => navigate('/orders')} className="p-2.5 bg-slate-900 rounded-xl border border-slate-800 text-center hover:border-indigo-500/50 cursor-pointer transition-all">
-            <span className="text-[10px] text-slate-400 block font-medium">Processing</span>
-            <span className="text-lg font-bold text-amber-400">{stats.statusCounts.processing}</span>
-          </div>
-          <div onClick={() => navigate('/orders')} className="p-2.5 bg-slate-900 rounded-xl border border-slate-800 text-center hover:border-indigo-500/50 cursor-pointer transition-all">
-            <span className="text-[10px] text-slate-400 block font-medium">Packed</span>
-            <span className="text-lg font-bold text-yellow-400">{stats.statusCounts.packed}</span>
-          </div>
-          <div onClick={() => navigate('/orders')} className="p-2.5 bg-slate-900 rounded-xl border border-slate-800 text-center hover:border-indigo-500/50 cursor-pointer transition-all">
-            <span className="text-[10px] text-slate-400 block font-medium">Shipped</span>
-            <span className="text-lg font-bold text-cyan-400">{stats.statusCounts.shipped}</span>
-          </div>
-          <div onClick={() => navigate('/orders')} className="p-2.5 bg-slate-900 rounded-xl border border-slate-800 text-center hover:border-indigo-500/50 cursor-pointer transition-all">
-            <span className="text-[10px] text-slate-400 block font-medium">Out for Delivery</span>
-            <span className="text-lg font-bold text-indigo-300">{stats.statusCounts.outForDelivery}</span>
-          </div>
-          <div onClick={() => navigate('/orders')} className="p-2.5 bg-slate-900 rounded-xl border border-slate-800 text-center hover:border-indigo-500/50 cursor-pointer transition-all">
-            <span className="text-[10px] text-slate-400 block font-medium">Delivered</span>
-            <span className="text-lg font-bold text-emerald-400">{stats.statusCounts.delivered}</span>
-          </div>
-          <div onClick={() => navigate('/orders')} className="p-2.5 bg-slate-900 rounded-xl border border-slate-800 text-center hover:border-indigo-500/50 cursor-pointer transition-all">
-            <span className="text-[10px] text-slate-400 block font-medium">Cancelled</span>
-            <span className="text-lg font-bold text-rose-400">{stats.statusCounts.cancelled}</span>
-          </div>
-          <div onClick={() => navigate('/orders')} className="p-2.5 bg-slate-900 rounded-xl border border-slate-800 text-center hover:border-indigo-500/50 cursor-pointer transition-all">
-            <span className="text-[10px] text-slate-400 block font-medium">Return Req</span>
-            <span className="text-lg font-bold text-purple-400">{stats.statusCounts.returnRequested}</span>
-          </div>
-          <div onClick={() => navigate('/orders')} className="p-2.5 bg-slate-900 rounded-xl border border-slate-800 text-center hover:border-indigo-500/50 cursor-pointer transition-all">
-            <span className="text-[10px] text-slate-400 block font-medium">Refunded</span>
-            <span className="text-lg font-bold text-fuchsia-400">{stats.statusCounts.refunded}</span>
-          </div>
+          {isPageLoading ? (
+            Array.from({ length: 10 }).map((_, i) => (
+              <div key={i} className="p-2.5 bg-slate-900/80 rounded-xl border border-slate-800/80 text-center space-y-1.5">
+                <Skeleton className="h-2.5 w-12 mx-auto" />
+                <Skeleton className="h-5 w-8 mx-auto" />
+              </div>
+            ))
+          ) : (
+            <>
+              <div onClick={() => navigate('/orders')} className="p-2.5 bg-slate-900 rounded-xl border border-slate-800 text-center hover:border-indigo-500/50 cursor-pointer transition-all">
+                <span className="text-[10px] text-slate-400 block font-medium">New</span>
+                <span className="text-lg font-bold text-indigo-400">{stats.statusCounts.new}</span>
+              </div>
+              <div onClick={() => navigate('/orders')} className="p-2.5 bg-slate-900 rounded-xl border border-slate-800 text-center hover:border-indigo-500/50 cursor-pointer transition-all">
+                <span className="text-[10px] text-slate-400 block font-medium">Confirmed</span>
+                <span className="text-lg font-bold text-blue-400">{stats.statusCounts.confirmed}</span>
+              </div>
+              <div onClick={() => navigate('/orders')} className="p-2.5 bg-slate-900 rounded-xl border border-slate-800 text-center hover:border-indigo-500/50 cursor-pointer transition-all">
+                <span className="text-[10px] text-slate-400 block font-medium">Processing</span>
+                <span className="text-lg font-bold text-amber-400">{stats.statusCounts.processing}</span>
+              </div>
+              <div onClick={() => navigate('/orders')} className="p-2.5 bg-slate-900 rounded-xl border border-slate-800 text-center hover:border-indigo-500/50 cursor-pointer transition-all">
+                <span className="text-[10px] text-slate-400 block font-medium">Packed</span>
+                <span className="text-lg font-bold text-yellow-400">{stats.statusCounts.packed}</span>
+              </div>
+              <div onClick={() => navigate('/orders')} className="p-2.5 bg-slate-900 rounded-xl border border-slate-800 text-center hover:border-indigo-500/50 cursor-pointer transition-all">
+                <span className="text-[10px] text-slate-400 block font-medium">Shipped</span>
+                <span className="text-lg font-bold text-cyan-400">{stats.statusCounts.shipped}</span>
+              </div>
+              <div onClick={() => navigate('/orders')} className="p-2.5 bg-slate-900 rounded-xl border border-slate-800 text-center hover:border-indigo-500/50 cursor-pointer transition-all">
+                <span className="text-[10px] text-slate-400 block font-medium">Out for Delivery</span>
+                <span className="text-lg font-bold text-teal-400">{stats.statusCounts.outForDelivery}</span>
+              </div>
+              <div onClick={() => navigate('/orders')} className="p-2.5 bg-slate-900 rounded-xl border border-slate-800 text-center hover:border-indigo-500/50 cursor-pointer transition-all">
+                <span className="text-[10px] text-slate-400 block font-medium">Delivered</span>
+                <span className="text-lg font-bold text-emerald-400">{stats.statusCounts.delivered}</span>
+              </div>
+              <div onClick={() => navigate('/orders')} className="p-2.5 bg-slate-900 rounded-xl border border-slate-800 text-center hover:border-indigo-500/50 cursor-pointer transition-all">
+                <span className="text-[10px] text-slate-400 block font-medium">Cancelled</span>
+                <span className="text-lg font-bold text-rose-400">{stats.statusCounts.cancelled}</span>
+              </div>
+              <div onClick={() => navigate('/orders')} className="p-2.5 bg-slate-900 rounded-xl border border-slate-800 text-center hover:border-indigo-500/50 cursor-pointer transition-all">
+                <span className="text-[10px] text-slate-400 block font-medium">Returned</span>
+                <span className="text-lg font-bold text-purple-400">{stats.statusCounts.returned}</span>
+              </div>
+              <div onClick={() => navigate('/orders')} className="p-2.5 bg-slate-900 rounded-xl border border-slate-800 text-center hover:border-indigo-500/50 cursor-pointer transition-all">
+                <span className="text-[10px] text-slate-400 block font-medium">Refunded</span>
+                <span className="text-lg font-bold text-fuchsia-400">{stats.statusCounts.refunded}</span>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
       {/* CHARTS SECTION: Revenue Analytics + Category Share */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 dash-section">
-        {/* Revenue & Orders Chart */}
-        <div className="lg:col-span-2 admin-card p-5">
-          <div className="flex items-center justify-between mb-4">
-            <div>
+        {isPageLoading ? (
+          <>
+            <div className="lg:col-span-2">
+              <ChartCardSkeleton height="h-72" />
+            </div>
+            <div className="lg:col-span-1">
+              <ChartCardSkeleton height="h-72" />
+            </div>
+          </>
+        ) : (
+          <>
+            {/* Revenue & Orders Chart */}
+            <div className="lg:col-span-2 admin-card p-5">
+              <div className="flex items-center justify-between mb-4">
+                <div>
               <h3 className="font-bold text-white text-base">Revenue & Sales Trends</h3>
               <p className="text-xs text-slate-400">Monthly sales trajectory across wedding & festive craft peaks</p>
             </div>
@@ -333,6 +373,8 @@ export const Dashboard = () => {
             ))}
           </div>
         </div>
+        </>
+        )}
       </div>
 
       {/* TWO COLUMN CONTENT: Recent Orders + Top Selling Products */}
@@ -365,7 +407,19 @@ export const Dashboard = () => {
                 </tr>
               </thead>
               <tbody>
-                {orders.slice(0, 6).map((order) => {
+                {isPageLoading ? (
+                  Array.from({ length: 6 }).map((_, i) => (
+                    <tr key={i} className="border-b border-slate-800/40">
+                      <td className="table-td"><Skeleton className="h-3.5 w-20" /></td>
+                      <td className="table-td"><Skeleton className="h-3.5 w-24 mb-1" /><Skeleton className="h-2.5 w-16 opacity-60" /></td>
+                      <td className="table-td"><div className="flex items-center gap-2"><Skeleton className="w-7 h-7 rounded-lg shrink-0" /><Skeleton className="h-3.5 w-28" /></div></td>
+                      <td className="table-td"><Skeleton className="h-3.5 w-14" /></td>
+                      <td className="table-td"><Skeleton className="h-5 w-20 rounded-full" /></td>
+                      <td className="table-td text-right"><div className="flex justify-end gap-1"><SkeletonCircle size="w-7 h-7" /><SkeletonCircle size="w-7 h-7" /></div></td>
+                    </tr>
+                  ))
+                ) : (
+                  orders.slice(0, 6).map((order) => {
                   const { total } = calculateOrderTotal(order);
                   return (
                     <tr key={order.id} className="table-tr">
@@ -434,7 +488,7 @@ export const Dashboard = () => {
                       </td>
                     </tr>
                   );
-                })}
+                }))}
               </tbody>
             </table>
           </div>
@@ -456,28 +510,44 @@ export const Dashboard = () => {
           </div>
 
           <div className="space-y-3.5">
-            {topProducts.map((p) => (
-              <div key={p.id} className="flex items-center gap-3 p-2 rounded-xl hover:bg-slate-800/50 transition-colors">
-                <ProductImage
-                  src={p.images?.[0]}
-                  category={p.category}
-                  alt={p.name}
-                  className="w-10 h-10 rounded-xl"
-                />
-                <div className="flex-1 truncate">
-                  <p className="text-xs font-semibold text-slate-100 truncate">{p.name}</p>
-                  <p className="text-[11px] text-slate-400">
-                    ₹{p.price} • <span className="text-emerald-400 font-medium">{p.unitsSold} sold</span>
-                  </p>
+            {isPageLoading ? (
+              Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="flex items-center gap-3 p-2 rounded-xl bg-slate-900/40 border border-slate-800/40">
+                  <Skeleton className="w-10 h-10 rounded-xl shrink-0" />
+                  <div className="flex-1 space-y-1.5 min-w-0">
+                    <Skeleton className="h-3.5 w-32" />
+                    <Skeleton className="h-2.5 w-20 opacity-60" />
+                  </div>
+                  <div className="text-right space-y-1 shrink-0">
+                    <Skeleton className="h-3.5 w-14 ml-auto" />
+                    <Skeleton className="h-3 w-10 ml-auto rounded" />
+                  </div>
                 </div>
-                <div className="text-right shrink-0">
-                  <span className="text-xs font-bold text-slate-200 block">₹{p.totalSales.toLocaleString()}</span>
-                  <span className="text-[10px] text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded font-semibold">
-                    {p.badge || 'Popular'}
-                  </span>
+              ))
+            ) : (
+              topProducts.map((p) => (
+                <div key={p.id} className="flex items-center gap-3 p-2 rounded-xl hover:bg-slate-800/50 transition-colors">
+                  <ProductImage
+                    src={p.images?.[0]}
+                    category={p.category}
+                    alt={p.name}
+                    className="w-10 h-10 rounded-xl"
+                  />
+                  <div className="flex-1 truncate">
+                    <p className="text-xs font-semibold text-slate-100 truncate">{p.name}</p>
+                    <p className="text-[11px] text-slate-400">
+                      ₹{p.price} • <span className="text-emerald-400 font-medium">{p.unitsSold} sold</span>
+                    </p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <span className="text-xs font-bold text-slate-200 block">₹{p.totalSales.toLocaleString()}</span>
+                    <span className="text-[10px] text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded font-semibold">
+                      {p.badge || 'Popular'}
+                    </span>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
       </div>
@@ -505,22 +575,37 @@ export const Dashboard = () => {
           </div>
 
           <div className="space-y-3">
-            {products.slice(28, 32).map((p) => (
-              <div key={p.id} className="flex items-center justify-between p-2.5 bg-slate-900/60 rounded-xl border border-slate-800">
-                <div className="flex items-center gap-3">
-                  <ProductImage src={p.images?.[0]} category={p.category} alt={p.name} className="w-9 h-9 rounded-lg" />
-                  <div>
-                    <p className="text-xs font-semibold text-slate-200 truncate max-w-[200px] sm:max-w-xs">{p.name}</p>
-                    <p className="text-[11px] text-slate-500">{p.category} • ₹{p.price}</p>
+            {isPageLoading ? (
+              Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="flex items-center justify-between p-2.5 bg-slate-900/60 rounded-xl border border-slate-800">
+                  <div className="flex items-center gap-3">
+                    <Skeleton className="w-9 h-9 rounded-lg shrink-0" />
+                    <div className="space-y-1">
+                      <Skeleton className="h-3.5 w-36" />
+                      <Skeleton className="h-2.5 w-20 opacity-60" />
+                    </div>
+                  </div>
+                  <Skeleton className="h-5 w-20 rounded-full" />
+                </div>
+              ))
+            ) : (
+              products.slice(28, 32).map((p) => (
+                <div key={p.id} className="flex items-center justify-between p-2.5 bg-slate-900/60 rounded-xl border border-slate-800">
+                  <div className="flex items-center gap-3">
+                    <ProductImage src={p.images?.[0]} category={p.category} alt={p.name} className="w-9 h-9 rounded-lg" />
+                    <div>
+                      <p className="text-xs font-semibold text-slate-200 truncate max-w-[200px] sm:max-w-xs">{p.name}</p>
+                      <p className="text-[11px] text-slate-500">{p.category} • ₹{p.price}</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <span className="badge-rose text-xs font-bold px-2 py-0.5 rounded-full">
+                      {p.stock || 8} units left
+                    </span>
                   </div>
                 </div>
-                <div className="text-right">
-                  <span className="badge-rose text-xs font-bold px-2 py-0.5 rounded-full">
-                    {p.stock || 8} units left
-                  </span>
-                </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
 
@@ -540,23 +625,41 @@ export const Dashboard = () => {
           </div>
 
           <div className="space-y-3">
-            {customers.slice(0, 4).map((c) => (
-              <div key={c.id} className="flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-800/40 transition-colors">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-xs font-bold">
-                    {c.avatar}
+            {isPageLoading ? (
+              Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="flex items-center justify-between p-2.5 rounded-xl border border-slate-800/40">
+                  <div className="flex items-center gap-3">
+                    <SkeletonCircle size="w-9 h-9" />
+                    <div className="space-y-1">
+                      <Skeleton className="h-3.5 w-28" />
+                      <Skeleton className="h-2.5 w-20 opacity-60" />
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-xs font-semibold text-slate-100">{c.name}</p>
-                    <p className="text-[11px] text-slate-400">{c.city}, {c.state}</p>
+                  <div className="text-right space-y-1">
+                    <Skeleton className="h-3.5 w-14 ml-auto" />
+                    <Skeleton className="h-2.5 w-12 ml-auto opacity-60" />
                   </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-xs font-bold text-slate-200">₹{c.totalSpent.toLocaleString()}</p>
-                  <p className="text-[10px] text-slate-500">{c.totalOrders} Orders</p>
+              ))
+            ) : (
+              customers.slice(0, 4).map((c) => (
+                <div key={c.id} className="flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-800/40 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-xs font-bold">
+                      {c.avatar}
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-slate-100">{c.name}</p>
+                      <p className="text-[11px] text-slate-400">{c.city}, {c.state}</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs font-bold text-slate-200">₹{c.totalSpent.toLocaleString()}</p>
+                    <p className="text-[10px] text-slate-500">{c.totalOrders} Orders</p>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
       </div>

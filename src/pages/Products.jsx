@@ -3,6 +3,8 @@ import { useAdmin } from '../context/AdminContext.jsx';
 import { ProductImage } from '../components/ui/ProductImage.jsx';
 import { ProductGalleryPreview } from '../components/ui/ProductGalleryPreview.jsx';
 import { ImageLightbox } from '../components/ui/ImageLightbox.jsx';
+import { usePageLoading } from '../hooks/usePageLoading.js';
+import { ProductsTableSkeleton, Skeleton } from '../components/ui/Skeleton.jsx';
 import {
   Plus,
   Search,
@@ -47,6 +49,7 @@ export const Products = () => {
     duplicateProduct,
     showToast
   } = useAdmin();
+  const isPageLoading = usePageLoading(450);
 
   const [activeBadgeFilter, setActiveBadgeFilter] = useState('All');
   const [selectedCategory, setSelectedCategory] = useState('All');
@@ -257,7 +260,16 @@ export const Products = () => {
               </tr>
             </thead>
             <tbody>
-              {filteredProducts.map((p) => {
+              {isPageLoading ? (
+                <ProductsTableSkeleton rows={7} />
+              ) : filteredProducts.length === 0 ? (
+                <tr>
+                  <td colSpan="8" className="text-center py-12 text-slate-500 text-sm">
+                    No products found matching your filter criteria.
+                  </td>
+                </tr>
+              ) : (
+                filteredProducts.map((p) => {
                 return (
                   <tr key={p.id} className="table-tr">
                     {/* Interactive Photo Gallery Strip */}
@@ -369,13 +381,13 @@ export const Products = () => {
                     </td>
                   </tr>
                 );
-              })}
+              }))}
             </tbody>
           </table>
         </div>
 
         <div className="p-3.5 border-t border-slate-800/80 text-xs text-slate-400 flex justify-between items-center shrink-0 bg-slate-900/90">
-          <span>Showing {filteredProducts.length} of {products.length} products</span>
+          <span>{isPageLoading ? <Skeleton className="h-3.5 w-36 inline-block align-middle" /> : `Showing ${filteredProducts.length} of ${products.length} products`}</span>
           <span className="text-[11px] text-slate-500">All 164 Product Photos Loaded Locally</span>
         </div>
       </div>

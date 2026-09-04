@@ -1,6 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { useAdmin } from '../context/AdminContext.jsx';
 import { ProductImage } from '../components/ui/ProductImage.jsx';
+import { usePageLoading } from '../hooks/usePageLoading.js';
+import { ShippingTableSkeleton, MetricCardSkeleton, Skeleton } from '../components/ui/Skeleton.jsx';
 import {
   Truck,
   Package,
@@ -29,6 +31,7 @@ const SHIPPING_TABS = [
 
 export const Shipping = () => {
   const { orders, setPrintDocument, updateOrderStatus, showToast } = useAdmin();
+  const isPageLoading = usePageLoading(450);
 
   const [activeTab, setActiveTab] = useState('All');
   const [searchTerm, setSearchTerm] = useState('');
@@ -41,20 +44,20 @@ export const Shipping = () => {
     return orders.map((o) => {
       // Determine shipping stage
       let shippingStage = 'Ready to Ship';
-      if (o.status === 'Confirmed' || o.status === 'Processing') shippingStage = 'Ready to Ship';
-      else if (o.status === 'Packed') shippingStage = 'Packed';
-      else if (o.status === 'Shipped') shippingStage = 'Shipped';
-      else if (o.status === 'Out for Delivery') shippingStage = 'Out for Delivery';
-      else if (o.status === 'Delivered') shippingStage = 'Delivered';
-      else if (o.status === 'Cancelled') shippingStage = 'Failed Delivery';
-      else if (o.status === 'Returned' || o.status === 'Return Requested') shippingStage = 'RTO';
+      if (o.status === 'Packed') shippingStage = 'Packed';
+      if (o.status === 'Shipped') shippingStage = 'Shipped';
+      if (o.status === 'Out for Delivery') shippingStage = 'Out for Delivery';
+      if (o.status === 'Delivered') shippingStage = 'Delivered';
+      if (o.status === 'Cancelled') shippingStage = 'Failed Delivery';
+      if (o.status === 'Returned' || o.status === 'Return Requested') shippingStage = 'RTO';
 
       return {
         ...o,
         shippingStage,
-        shippingCost: o.shippingCharge || 49,
-        attempts: o.status === 'Out for Delivery' ? 1 : (o.status === 'Delivered' ? 1 : 0),
-        weight: '350g',
+        carrierService: o.shippingPartner === 'BlueDart' ? 'Apex Air Priority' : 'Standard Surface Express',
+        weight: o.items.length > 2 ? '1.2 kg' : '450 g',
+        attempts: o.status === 'Delivered' ? 1 : (o.status === 'Cancelled' ? 3 : 0),
+        estimatedDelivery: o.status === 'Delivered' ? 'Completed' : 'Sep 06, 2026'
       };
     });
   }, [orders]);
@@ -108,52 +111,60 @@ export const Shipping = () => {
         </div>
 
         {selectedShipments.length > 0 && (
-          <div className="flex items-center gap-2 bg-indigo-950/70 border border-indigo-500/40 px-3.5 py-1.5 rounded-xl text-xs text-slate-200 animate-fadeIn shrink-0">
-            <span className="font-bold text-indigo-400">{selectedShipments.length} selected</span>
-            <button onClick={handleBulkPrintLabels} className="btn-primary py-1 px-3 text-xs">
-              <Printer className="w-3.5 h-3.5" /> Bulk Print Shipping Labels
-            </button>
-          </div>
+          <button
+            onClick={handleBulkPrintLabels}
+            className="btn-primary py-1.5 px-3 text-xs shrink-0 animate-scaleIn"
+          >
+            <Printer className="w-3.5 h-3.5" /> Print Labels ({selectedShipments.length})
+          </button>
         )}
       </div>
 
       {/* COURIER PARTNER HEALTH CARDS */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 shrink-0">
-        <div className="admin-card p-4">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-400">BlueDart Express</span>
-            <span className="w-2 h-2 rounded-full bg-emerald-400" />
-          </div>
-          <p className="text-xl font-black text-white mt-2">6 Shipments</p>
-          <p className="text-[11px] text-emerald-400 mt-0.5">Avg Delivery: 2.1 Days</p>
-        </div>
+        {isPageLoading ? (
+          Array.from({ length: 4 }).map((_, i) => (
+            <MetricCardSkeleton key={i} />
+          ))
+        ) : (
+          <>
+            <div className="admin-card p-4">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-400">BlueDart Express</span>
+                <span className="w-2 h-2 rounded-full bg-emerald-400" />
+              </div>
+              <p className="text-xl font-black text-white mt-2">6 Shipments</p>
+              <p className="text-[11px] text-emerald-400 mt-0.5">Avg Delivery: 2.1 Days</p>
+            </div>
 
-        <div className="admin-card p-4">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-400">Delhivery Surface</span>
-            <span className="w-2 h-2 rounded-full bg-emerald-400" />
-          </div>
-          <p className="text-xl font-black text-white mt-2">3 Shipments</p>
-          <p className="text-[11px] text-emerald-400 mt-0.5">Avg Delivery: 3.4 Days</p>
-        </div>
+            <div className="admin-card p-4">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-400">Delhivery Surface</span>
+                <span className="w-2 h-2 rounded-full bg-emerald-400" />
+              </div>
+              <p className="text-xl font-black text-white mt-2">3 Shipments</p>
+              <p className="text-[11px] text-emerald-400 mt-0.5">Avg Delivery: 3.4 Days</p>
+            </div>
 
-        <div className="admin-card p-4">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-400">Xpressbees Logistics</span>
-            <span className="w-2 h-2 rounded-full bg-emerald-400" />
-          </div>
-          <p className="text-xl font-black text-white mt-2">2 Shipments</p>
-          <p className="text-[11px] text-emerald-400 mt-0.5">Avg Delivery: 2.8 Days</p>
-        </div>
+            <div className="admin-card p-4">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-400">Xpressbees Logistics</span>
+                <span className="w-2 h-2 rounded-full bg-emerald-400" />
+              </div>
+              <p className="text-xl font-black text-white mt-2">2 Shipments</p>
+              <p className="text-[11px] text-emerald-400 mt-0.5">Avg Delivery: 2.8 Days</p>
+            </div>
 
-        <div className="admin-card p-4">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-400">DTDC Standard</span>
-            <span className="w-2 h-2 rounded-full bg-emerald-400" />
-          </div>
-          <p className="text-xl font-black text-white mt-2">1 Shipment</p>
-          <p className="text-[11px] text-emerald-400 mt-0.5">Avg Delivery: 3.0 Days</p>
-        </div>
+            <div className="admin-card p-4">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-400">DTDC Standard</span>
+                <span className="w-2 h-2 rounded-full bg-emerald-400" />
+              </div>
+              <p className="text-xl font-black text-white mt-2">1 Shipment</p>
+              <p className="text-[11px] text-emerald-400 mt-0.5">Avg Delivery: 3.0 Days</p>
+            </div>
+          </>
+        )}
       </div>
 
       {/* TABS */}
@@ -179,7 +190,11 @@ export const Shipping = () => {
             >
               <span>{tab}</span>
               <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${isActive ? 'bg-white/20 text-white' : 'bg-slate-800 text-slate-400'}`}>
-                {count}
+                {isPageLoading ? (
+                  <span className="w-2.5 h-2.5 rounded-full bg-slate-500/50 animate-pulse inline-block" />
+                ) : (
+                  count
+                )}
               </span>
             </button>
           );
@@ -239,7 +254,16 @@ export const Shipping = () => {
               </tr>
             </thead>
             <tbody>
-              {filteredShipments.map((s) => {
+              {isPageLoading ? (
+                <ShippingTableSkeleton rows={7} />
+              ) : filteredShipments.length === 0 ? (
+                <tr>
+                  <td colSpan="9" className="text-center py-12 text-slate-500 text-sm">
+                    No shipments found matching your filters.
+                  </td>
+                </tr>
+              ) : (
+                filteredShipments.map((s) => {
                 const isSelected = selectedShipments.includes(s.id);
                 return (
                   <tr key={s.id} className={`table-tr ${isSelected ? 'bg-indigo-950/20' : ''}`}>
@@ -312,12 +336,12 @@ export const Shipping = () => {
                     </td>
                   </tr>
                 );
-              })}
+              }))}
             </tbody>
           </table>
         </div>
         <div className="p-3.5 border-t border-slate-800/80 text-xs text-slate-400 flex justify-between items-center shrink-0 bg-slate-900/90">
-          <span>Showing {filteredShipments.length} of {shipments.length} active consignments</span>
+          <span>{isPageLoading ? <Skeleton className="h-3.5 w-36 inline-block align-middle" /> : `Showing ${filteredShipments.length} of ${shipments.length} active consignments`}</span>
           <span className="text-[11px] text-slate-500">Real-time carrier AWB tracking</span>
         </div>
       </div>

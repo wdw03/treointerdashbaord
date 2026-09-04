@@ -1,5 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useAdmin } from '../context/AdminContext.jsx';
+import { usePageLoading } from '../hooks/usePageLoading.js';
+import { ReturnsTableSkeleton, Skeleton } from '../components/ui/Skeleton.jsx';
 import {
   RotateCcw,
   Search,
@@ -26,6 +28,7 @@ const RETURN_STAGES = [
 
 export const Returns = () => {
   const { returns, updateReturnStatus, showToast } = useAdmin();
+  const isPageLoading = usePageLoading(450);
 
   const [activeTab, setActiveTab] = useState('All');
   const [searchTerm, setSearchTerm] = useState('');
@@ -78,7 +81,11 @@ export const Returns = () => {
             >
               <span>{tab}</span>
               <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${isActive ? 'bg-white/20 text-white' : 'bg-slate-800 text-slate-400'}`}>
-                {count}
+                {isPageLoading ? (
+                  <span className="w-2.5 h-2.5 rounded-full bg-slate-500/50 animate-pulse inline-block" />
+                ) : (
+                  count
+                )}
               </span>
             </button>
           );
@@ -116,7 +123,16 @@ export const Returns = () => {
               </tr>
             </thead>
             <tbody>
-              {filteredReturns.map((r) => (
+              {isPageLoading ? (
+                <ReturnsTableSkeleton rows={7} />
+              ) : filteredReturns.length === 0 ? (
+                <tr>
+                  <td colSpan="8" className="text-center py-12 text-slate-500 text-sm">
+                    No return claims match your current filters.
+                  </td>
+                </tr>
+              ) : (
+                filteredReturns.map((r) => (
                 <tr key={r.id} className="table-tr">
                   <td className="table-td font-mono font-bold text-indigo-400 text-xs">
                     {r.id}
@@ -161,12 +177,13 @@ export const Returns = () => {
                     </button>
                   </td>
                 </tr>
-              ))}
-            </tbody>
+              ))
+            )}
+          </tbody>
           </table>
         </div>
         <div className="p-3.5 border-t border-slate-800/80 text-xs text-slate-400 flex justify-between items-center shrink-0 bg-slate-900/90">
-          <span>Showing {filteredReturns.length} of {returns.length} return claims</span>
+          <span>{isPageLoading ? <Skeleton className="h-3.5 w-36 inline-block align-middle" /> : `Showing ${filteredReturns.length} of ${returns.length} return claims`}</span>
           <span className="text-[11px] text-slate-500">Automated reverse pickup courier dispatch</span>
         </div>
       </div>

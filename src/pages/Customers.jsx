@@ -1,5 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useAdmin } from '../context/AdminContext.jsx';
+import { usePageLoading } from '../hooks/usePageLoading.js';
+import { CustomersTableSkeleton, Skeleton } from '../components/ui/Skeleton.jsx';
 import {
   Users,
   Search,
@@ -16,6 +18,7 @@ import {
 
 export const Customers = () => {
   const { customers, orders } = useAdmin();
+  const isPageLoading = usePageLoading(450);
 
   const [activeTab, setActiveTab] = useState('All'); // 'All' | 'VIP' | 'New'
   const [searchTerm, setSearchTerm] = useState('');
@@ -50,9 +53,9 @@ export const Customers = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0">
         <div>
-          <h1 className="text-2xl font-black tracking-tight text-white">Customers & Artisans Directory</h1>
+          <h1 className="text-2xl font-black tracking-tight text-white">Artisan Customers & Boutiques</h1>
           <p className="text-xs sm:text-sm text-slate-400 mt-1">
-            Profiles, boutique designer orders, lifetime customer spend and shipping addresses.
+            Buyer directory, boutique profiles, total orders and lifetime purchase values.
           </p>
         </div>
       </div>
@@ -65,13 +68,18 @@ export const Customers = () => {
               key={tab}
               onClick={() => setActiveTab(tab)}
               className={`
-                px-3 py-1.5 rounded-xl font-medium transition-colors
+                px-3 py-1.5 rounded-xl font-medium transition-colors flex items-center gap-1.5
                 ${activeTab === tab ? 'bg-indigo-600 text-white font-bold' : 'bg-slate-900 text-slate-400 hover:text-white'}
               `}
             >
-              {tab === 'VIP' ? 'VIP Artisans' : (tab === 'New' ? 'New Customers' : 'All Customers')} ({
-                tab === 'All' ? customers.length : (tab === 'VIP' ? customers.filter(c => c.tags.includes('VIP') || c.tags.includes('High Value')).length : customers.filter(c => c.totalOrders <= 3).length)
-              })
+              <span>{tab === 'VIP' ? 'VIP Artisans' : (tab === 'New' ? 'New Customers' : 'All Customers')}</span>
+              <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${activeTab === tab ? 'bg-white/20 text-white' : 'bg-slate-800 text-slate-400'}`}>
+                {isPageLoading ? (
+                  <span className="w-2.5 h-2.5 rounded-full bg-slate-500/50 animate-pulse inline-block" />
+                ) : (
+                  tab === 'All' ? customers.length : (tab === 'VIP' ? customers.filter(c => c.tags.includes('VIP') || c.tags.includes('High Value')).length : customers.filter(c => c.totalOrders <= 3).length)
+                )}
+              </span>
             </button>
           ))}
         </div>
@@ -105,7 +113,16 @@ export const Customers = () => {
               </tr>
             </thead>
             <tbody>
-              {filteredCustomers.map((c) => (
+              {isPageLoading ? (
+                <CustomersTableSkeleton rows={7} />
+              ) : filteredCustomers.length === 0 ? (
+                <tr>
+                  <td colSpan="8" className="text-center py-12 text-slate-500 text-sm">
+                    No customers found matching your filters.
+                  </td>
+                </tr>
+              ) : (
+                filteredCustomers.map((c) => (
                 <tr key={c.id} className="table-tr">
                   {/* Customer Avatar & Name */}
                   <td className="table-td">
@@ -168,12 +185,13 @@ export const Customers = () => {
                     </button>
                   </td>
                 </tr>
-              ))}
-            </tbody>
+              ))
+            )}
+          </tbody>
           </table>
         </div>
         <div className="p-3.5 border-t border-slate-800/80 text-xs text-slate-400 flex justify-between items-center shrink-0 bg-slate-900/90">
-          <span>Showing {filteredCustomers.length} of {customers.length} registered customers</span>
+          <span>{isPageLoading ? <Skeleton className="h-3.5 w-36 inline-block align-middle" /> : `Showing ${filteredCustomers.length} of ${customers.length} registered customers`}</span>
           <span className="text-[11px] text-slate-500">Click View Profile to see complete order history</span>
         </div>
       </div>

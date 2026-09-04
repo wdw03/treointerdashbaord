@@ -2,6 +2,8 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useAdmin } from '../context/AdminContext.jsx';
 import { ProductImage } from '../components/ui/ProductImage.jsx';
 import { calculateOrderTotal, ORDER_STATUSES } from '../data/orders.js';
+import { usePageLoading } from '../hooks/usePageLoading.js';
+import { OrdersTableSkeleton, Skeleton } from '../components/ui/Skeleton.jsx';
 import {
   Search,
   Filter,
@@ -25,6 +27,7 @@ import {
 
 export const Orders = () => {
   const { orders, updateOrderStatus, bulkUpdateOrderStatus, setPrintDocument, showToast } = useAdmin();
+  const isPageLoading = usePageLoading(450);
 
   // Active Tab Filter (All or specific status)
   const [activeTab, setActiveTab] = useState('All');
@@ -256,13 +259,17 @@ export const Orders = () => {
                 >
                   <span>{tab}</span>
                   <span
-                    className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                    className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold flex items-center justify-center min-w-[1.25rem] ${
                       isActive
                         ? 'bg-white/20 text-white'
                         : 'bg-slate-800 text-slate-400'
                     }`}
                   >
-                    {count}
+                    {isPageLoading ? (
+                      <span className="w-2.5 h-2.5 rounded-full bg-slate-500/50 animate-pulse" />
+                    ) : (
+                      count
+                    )}
                   </span>
                 </button>
               );
@@ -384,7 +391,9 @@ export const Orders = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/40">
-              {filteredOrders.length === 0 ? (
+              {isPageLoading ? (
+                <OrdersTableSkeleton rows={7} />
+              ) : filteredOrders.length === 0 ? (
                 <tr>
                   <td colSpan="10" className="text-center py-12 text-slate-500 text-sm">
                     No orders match your current filters.
@@ -524,7 +533,7 @@ export const Orders = () => {
 
         {/* Footer info */}
         <div className="p-3 sm:p-3.5 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between gap-1 text-[11px] sm:text-xs text-slate-400 shrink-0 bg-slate-900/90">
-          <span>Showing {filteredOrders.length} of {orders.length} total orders</span>
+          <span>{isPageLoading ? <Skeleton className="h-3.5 w-36 inline-block align-middle" /> : `Showing ${filteredOrders.length} of ${orders.length} total orders`}</span>
           <span className="text-slate-500 text-[10px] sm:text-[11px]">Click any order row to view visual timeline and complete details</span>
         </div>
       </div>

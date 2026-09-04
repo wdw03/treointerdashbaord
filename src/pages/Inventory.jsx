@@ -1,6 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { useAdmin } from '../context/AdminContext.jsx';
 import { ProductImage } from '../components/ui/ProductImage.jsx';
+import { usePageLoading } from '../hooks/usePageLoading.js';
+import { MetricCardSkeleton, InventoryTableSkeleton, Skeleton } from '../components/ui/Skeleton.jsx';
 import {
   Warehouse,
   AlertTriangle,
@@ -22,6 +24,7 @@ import {
 
 export const Inventory = () => {
   const { inventory, stockLogs, adjustStock, showToast } = useAdmin();
+  const isPageLoading = usePageLoading(450);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
@@ -39,11 +42,11 @@ export const Inventory = () => {
     let outCount = 0;
 
     inventory.forEach((item) => {
-      total += item.totalStock;
-      available += item.availableStock;
-      reserved += item.reservedStock;
-      if (item.availableStock === 0) outCount++;
-      else if (item.availableStock <= item.lowStockThreshold) lowCount++;
+      total += item.totalStock || 0;
+      available += item.availableStock || 0;
+      reserved += item.reservedStock || 0;
+      if (item.status === 'Low Stock') lowCount++;
+      if (item.status === 'Out of Stock') outCount++;
     });
 
     return { total, available, reserved, lowCount, outCount };
@@ -92,35 +95,43 @@ export const Inventory = () => {
 
       {/* KPI METRIC CARDS */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3.5 shrink-0">
-        <div className="admin-card p-4">
-          <span className="text-xs font-medium text-slate-400">Total Stock</span>
-          <p className="text-xl font-extrabold text-white mt-1.5">{totals.total.toLocaleString()} units</p>
-          <span className="text-[11px] text-slate-500 block mt-0.5">Across 43 catalog SKUs</span>
-        </div>
+        {isPageLoading ? (
+          Array.from({ length: 5 }).map((_, i) => (
+            <MetricCardSkeleton key={i} />
+          ))
+        ) : (
+          <>
+            <div className="admin-card p-4">
+              <span className="text-xs font-medium text-slate-400">Total Stock</span>
+              <p className="text-xl font-extrabold text-white mt-1.5">{totals.total.toLocaleString()} units</p>
+              <span className="text-[11px] text-slate-500 block mt-0.5">Across 43 catalog SKUs</span>
+            </div>
 
-        <div className="admin-card p-4">
-          <span className="text-xs font-medium text-slate-400">Available Stock</span>
-          <p className="text-xl font-extrabold text-emerald-400 mt-1.5">{totals.available.toLocaleString()} units</p>
-          <span className="text-[11px] text-emerald-500/80 block mt-0.5">Ready for instant packing</span>
-        </div>
+            <div className="admin-card p-4">
+              <span className="text-xs font-medium text-slate-400">Available Stock</span>
+              <p className="text-xl font-extrabold text-emerald-400 mt-1.5">{totals.available.toLocaleString()} units</p>
+              <span className="text-[11px] text-emerald-500/80 block mt-0.5">Ready for instant packing</span>
+            </div>
 
-        <div className="admin-card p-4">
-          <span className="text-xs font-medium text-slate-400">Reserved in Orders</span>
-          <p className="text-xl font-extrabold text-amber-400 mt-1.5">{totals.reserved.toLocaleString()} units</p>
-          <span className="text-[11px] text-amber-500/80 block mt-0.5">Committed to pipeline</span>
-        </div>
+            <div className="admin-card p-4">
+              <span className="text-xs font-medium text-slate-400">Reserved in Orders</span>
+              <p className="text-xl font-extrabold text-amber-400 mt-1.5">{totals.reserved.toLocaleString()} units</p>
+              <span className="text-[11px] text-amber-500/80 block mt-0.5">Committed to pipeline</span>
+            </div>
 
-        <div className="admin-card p-4 border-rose-500/20">
-          <span className="text-xs font-medium text-slate-400">Low Stock Alert</span>
-          <p className="text-xl font-extrabold text-rose-400 mt-1.5">{totals.lowCount} items</p>
-          <span className="text-[11px] text-rose-400/80 block mt-0.5">Below 15 units threshold</span>
-        </div>
+            <div className="admin-card p-4 border-rose-500/20">
+              <span className="text-xs font-medium text-slate-400">Low Stock Alert</span>
+              <p className="text-xl font-extrabold text-rose-400 mt-1.5">{totals.lowCount} items</p>
+              <span className="text-[11px] text-rose-400/80 block mt-0.5">Below 15 units threshold</span>
+            </div>
 
-        <div className="admin-card p-4 col-span-2 sm:col-span-1">
-          <span className="text-xs font-medium text-slate-400">Out of Stock</span>
-          <p className="text-xl font-extrabold text-slate-400 mt-1.5">{totals.outCount} items</p>
-          <span className="text-[11px] text-slate-500 block mt-0.5">Zero availability</span>
-        </div>
+            <div className="admin-card p-4 col-span-2 sm:col-span-1">
+              <span className="text-xs font-medium text-slate-400">Out of Stock</span>
+              <p className="text-xl font-extrabold text-slate-400 mt-1.5">{totals.outCount} items</p>
+              <span className="text-[11px] text-slate-500 block mt-0.5">Zero availability</span>
+            </div>
+          </>
+        )}
       </div>
 
       {/* FILTER & SEARCH */}
@@ -168,7 +179,16 @@ export const Inventory = () => {
               </tr>
             </thead>
             <tbody>
-              {filteredInventory.map((item) => {
+              {isPageLoading ? (
+                <InventoryTableSkeleton rows={7} />
+              ) : filteredInventory.length === 0 ? (
+                <tr>
+                  <td colSpan="8" className="text-center py-12 text-slate-500 text-sm">
+                    No inventory items match your search or filter.
+                  </td>
+                </tr>
+              ) : (
+                filteredInventory.map((item) => {
                 const isExpanded = expandedVariants.includes(item.productId);
                 const hasVariants = item.variants && item.variants.length > 0;
 
@@ -285,7 +305,7 @@ export const Inventory = () => {
                     )}
                   </React.Fragment>
                 );
-              })}
+              }))}
             </tbody>
           </table>
         </div>
@@ -315,21 +335,35 @@ export const Inventory = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/60">
-              {stockLogs.map((log) => (
-                <tr key={log.id} className="hover:bg-slate-800/20">
-                  <td className="py-2.5 px-3 text-slate-400 font-mono">{log.date}</td>
-                  <td className="py-2.5 px-3 font-mono font-bold text-indigo-400">{log.sku}</td>
-                  <td className="py-2.5 px-3 font-medium text-slate-200">{log.productName}</td>
-                  <td className="py-2.5 px-3 text-center font-bold">
-                    <span className={log.change.startsWith('+') ? 'text-emerald-400' : 'text-rose-400'}>
-                      {log.change}
-                    </span>
-                  </td>
-                  <td className="py-2.5 px-3 text-center font-bold text-slate-200">{log.newStock}</td>
-                  <td className="py-2.5 px-3 text-slate-400">{log.reason}</td>
-                  <td className="py-2.5 px-3 text-slate-500">{log.admin}</td>
-                </tr>
-              ))}
+              {isPageLoading ? (
+                Array.from({ length: 4 }).map((_, i) => (
+                  <tr key={i} className="hover:bg-slate-800/20">
+                    <td className="py-2.5 px-3"><Skeleton className="h-3 w-20" /></td>
+                    <td className="py-2.5 px-3"><Skeleton className="h-3 w-16" /></td>
+                    <td className="py-2.5 px-3"><Skeleton className="h-3 w-36" /></td>
+                    <td className="py-2.5 px-3 text-center"><Skeleton className="h-3 w-10 mx-auto" /></td>
+                    <td className="py-2.5 px-3 text-center"><Skeleton className="h-3 w-10 mx-auto" /></td>
+                    <td className="py-2.5 px-3"><Skeleton className="h-3 w-28" /></td>
+                    <td className="py-2.5 px-3"><Skeleton className="h-3 w-16" /></td>
+                  </tr>
+                ))
+              ) : (
+                stockLogs.map((log) => (
+                  <tr key={log.id} className="hover:bg-slate-800/20">
+                    <td className="py-2.5 px-3 text-slate-400 font-mono">{log.date}</td>
+                    <td className="py-2.5 px-3 font-mono font-bold text-indigo-400">{log.sku}</td>
+                    <td className="py-2.5 px-3 font-medium text-slate-200">{log.productName}</td>
+                    <td className="py-2.5 px-3 text-center font-bold">
+                      <span className={log.change.startsWith('+') ? 'text-emerald-400' : 'text-rose-400'}>
+                        {log.change}
+                      </span>
+                    </td>
+                    <td className="py-2.5 px-3 text-center font-bold text-slate-200">{log.newStock}</td>
+                    <td className="py-2.5 px-3 text-slate-400">{log.reason}</td>
+                    <td className="py-2.5 px-3 text-slate-500">{log.admin}</td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

@@ -1,5 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useAdmin } from '../context/AdminContext.jsx';
+import { usePageLoading } from '../hooks/usePageLoading.js';
+import { MetricCardSkeleton, PaymentsTableSkeleton, Skeleton } from '../components/ui/Skeleton.jsx';
 import {
   CreditCard,
   Search,
@@ -15,6 +17,7 @@ import {
 
 export const Payments = () => {
   const { payments, showToast } = useAdmin();
+  const isPageLoading = usePageLoading(450);
 
   const [activeTab, setActiveTab] = useState('All');
   const [searchTerm, setSearchTerm] = useState('');
@@ -71,29 +74,37 @@ export const Payments = () => {
 
       {/* METRIC STRIP */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 shrink-0">
-        <div className="admin-card p-4">
-          <span className="text-xs text-slate-400 font-medium">Settled to Bank (Net)</span>
-          <p className="text-xl font-black text-emerald-400 mt-1.5">₹{totalSettled.toLocaleString()}</p>
-          <span className="text-[11px] text-slate-500 block mt-0.5">Auto-settled via Razorpay & UPI</span>
-        </div>
+        {isPageLoading ? (
+          Array.from({ length: 4 }).map((_, i) => (
+            <MetricCardSkeleton key={i} />
+          ))
+        ) : (
+          <>
+            <div className="admin-card p-4">
+              <span className="text-xs text-slate-400 font-medium">Settled to Bank (Net)</span>
+              <p className="text-xl font-black text-emerald-400 mt-1.5">₹{totalSettled.toLocaleString()}</p>
+              <span className="text-[11px] text-slate-500 block mt-0.5">Auto-settled via Razorpay & UPI</span>
+            </div>
 
-        <div className="admin-card p-4">
-          <span className="text-xs text-slate-400 font-medium">Pending Collections (COD)</span>
-          <p className="text-xl font-black text-amber-400 mt-1.5">₹567</p>
-          <span className="text-[11px] text-slate-500 block mt-0.5">With Delhivery & Xpressbees</span>
-        </div>
+            <div className="admin-card p-4">
+              <span className="text-xs text-slate-400 font-medium">Pending Collections (COD)</span>
+              <p className="text-xl font-black text-amber-400 mt-1.5">₹567</p>
+              <span className="text-[11px] text-slate-500 block mt-0.5">With Delhivery & Xpressbees</span>
+            </div>
 
-        <div className="admin-card p-4">
-          <span className="text-xs text-slate-400 font-medium">Refunds Disbursed</span>
-          <p className="text-xl font-black text-rose-400 mt-1.5">₹{totalRefunded.toLocaleString()}</p>
-          <span className="text-[11px] text-slate-500 block mt-0.5">1 return claim approved</span>
-        </div>
+            <div className="admin-card p-4">
+              <span className="text-xs text-slate-400 font-medium">Refunds Disbursed</span>
+              <p className="text-xl font-black text-rose-400 mt-1.5">₹{totalRefunded.toLocaleString()}</p>
+              <span className="text-[11px] text-slate-500 block mt-0.5">1 return claim approved</span>
+            </div>
 
-        <div className="admin-card p-4">
-          <span className="text-xs text-slate-400 font-medium">Success Rate</span>
-          <p className="text-xl font-black text-white mt-1.5">97.8%</p>
-          <span className="text-[11px] text-emerald-400 block mt-0.5">Zero payment gateway downtime</span>
-        </div>
+            <div className="admin-card p-4">
+              <span className="text-xs text-slate-400 font-medium">Success Rate</span>
+              <p className="text-xl font-black text-white mt-1.5">97.8%</p>
+              <span className="text-[11px] text-emerald-400 block mt-0.5">Zero payment gateway downtime</span>
+            </div>
+          </>
+        )}
       </div>
 
       {/* TABS & SEARCH */}
@@ -142,7 +153,16 @@ export const Payments = () => {
               </tr>
             </thead>
             <tbody>
-              {filteredPayments.map((p) => (
+              {isPageLoading ? (
+                <PaymentsTableSkeleton rows={7} />
+              ) : filteredPayments.length === 0 ? (
+                <tr>
+                  <td colSpan="8" className="text-center py-12 text-slate-500 text-sm">
+                    No transactions found matching your filters.
+                  </td>
+                </tr>
+              ) : (
+                filteredPayments.map((p) => (
                 <tr key={p.id} className="table-tr">
                   <td className="table-td font-mono font-bold text-indigo-400 text-xs">
                     {p.id}
@@ -178,12 +198,13 @@ export const Payments = () => {
                     {p.date}
                   </td>
                 </tr>
-              ))}
-            </tbody>
+              ))
+            )}
+          </tbody>
           </table>
         </div>
         <div className="p-3.5 border-t border-slate-800/80 text-xs text-slate-400 flex justify-between items-center shrink-0 bg-slate-900/90">
-          <span>Showing {filteredPayments.length} of {payments.length} transactions</span>
+          <span>{isPageLoading ? <Skeleton className="h-3.5 w-36 inline-block align-middle" /> : `Showing ${filteredPayments.length} of ${payments.length} transactions`}</span>
           <span className="text-[11px] text-slate-500">100% encrypted bank reconciliation</span>
         </div>
       </div>

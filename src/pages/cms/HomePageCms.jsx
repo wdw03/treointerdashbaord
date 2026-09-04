@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { useAdmin } from '../../context/AdminContext.jsx';
+import { usePageLoading } from '../../hooks/usePageLoading.js';
+import { HeroSlidesSkeleton, Skeleton } from '../../components/ui/Skeleton.jsx';
 import { SlideEditorModal } from '../../components/cms/SlideEditorModal.jsx';
 import { DeleteConfirmModal } from '../../components/ui/DeleteConfirmModal.jsx';
 import {
@@ -39,6 +41,7 @@ export const HomePageCms = () => {
     resetCmsToDefaults,
     showToast
   } = useAdmin();
+  const isPageLoading = usePageLoading(450);
 
   // Active view mode for preview
   const [devicePreview, setDevicePreview] = useState('desktop'); // 'desktop' | 'mobile'
@@ -146,121 +149,125 @@ export const HomePageCms = () => {
         </div>
 
         {/* Slides Grid / Cards */}
-        <div className="space-y-3.5">
-          {cmsHeroSlides.map((slide, index) => (
-            <div
-              key={slide.id}
-              className={`
-                p-4 rounded-2xl border transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4
-                ${slide.isActive
-                  ? 'bg-slate-900/90 border-slate-800 hover:border-indigo-500/40 shadow-lg'
-                  : 'bg-slate-950/60 border-slate-800/40 opacity-70'
-                }
-              `}
-            >
-              {/* Left Details */}
-              <div className="flex items-center gap-4 flex-1">
-                {/* Order Index & Reorder Arrows */}
-                <div className="flex flex-col items-center gap-1 text-slate-400 shrink-0">
+        {isPageLoading ? (
+          <HeroSlidesSkeleton count={3} />
+        ) : (
+          <div className="space-y-3.5">
+            {cmsHeroSlides.map((slide, index) => (
+              <div
+                key={slide.id}
+                className={`
+                  p-4 rounded-2xl border transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4
+                  ${slide.isActive
+                    ? 'bg-slate-900/90 border-slate-800 hover:border-indigo-500/40 shadow-lg'
+                    : 'bg-slate-950/60 border-slate-800/40 opacity-70'
+                  }
+                `}
+              >
+                {/* Left Details */}
+                <div className="flex items-center gap-4 flex-1">
+                  {/* Order Index & Reorder Arrows */}
+                  <div className="flex flex-col items-center gap-1 text-slate-400 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => handleMoveUp(index)}
+                      disabled={index === 0}
+                      className="p-1 hover:text-white disabled:opacity-20 hover:bg-slate-800 rounded transition-colors"
+                      title="Move Up"
+                    >
+                      <ArrowUp className="w-3.5 h-3.5" />
+                    </button>
+                    <span className="font-mono text-xs font-bold text-slate-300">#{index + 1}</span>
+                    <button
+                      type="button"
+                      onClick={() => handleMoveDown(index)}
+                      disabled={index === cmsHeroSlides.length - 1}
+                      className="p-1 hover:text-white disabled:opacity-20 hover:bg-slate-800 rounded transition-colors"
+                      title="Move Down"
+                    >
+                      <ArrowDown className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+
+                  {/* Slide Preview Image */}
+                  <div className="w-20 h-16 sm:w-24 sm:h-20 rounded-xl overflow-hidden border border-slate-700 bg-slate-950 shrink-0 relative group">
+                    <img
+                      src={devicePreview === 'mobile' ? (slide.mobileImage || slide.image) : slide.image}
+                      alt={slide.title}
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[10px] font-bold">
+                      {devicePreview === 'mobile' ? 'Mobile' : 'Desktop'}
+                    </div>
+                  </div>
+
+                  {/* Text Details depending on Preview Mode */}
+                  <div className="truncate flex-1 space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] uppercase font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
+                        {slide.badge}
+                      </span>
+                      <span className="text-[10px] font-mono text-indigo-400 font-bold">
+                        {slide.tag}
+                      </span>
+                      <span className={`text-[10px] px-2 py-0.2 rounded-full font-bold ${slide.isActive ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-slate-800 text-slate-500'}`}>
+                        {slide.isActive ? 'Live' : 'Disabled'}
+                      </span>
+                    </div>
+
+                    <h3 className="font-bold text-white text-sm truncate">
+                      {devicePreview === 'mobile' ? (slide.mobileTitle || slide.title) : slide.title}
+                    </h3>
+
+                    <p className="text-xs text-slate-400 line-clamp-1 max-w-xl">
+                      {devicePreview === 'mobile' ? (slide.mobileSubtitle || slide.subtitle) : slide.subtitle}
+                    </p>
+
+                    <div className="flex items-center gap-2 text-[11px] text-slate-500 pt-0.5">
+                      <span>CTA: <strong className="text-slate-300">{devicePreview === 'mobile' ? slide.mobileCtaText : slide.desktopCtaText}</strong></span>
+                      <span>•</span>
+                      <span className="font-mono text-indigo-400">{slide.ctaLink}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right Slide Action Controls */}
+                <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
                   <button
                     type="button"
-                    onClick={() => handleMoveUp(index)}
-                    disabled={index === 0}
-                    className="p-1 hover:text-white disabled:opacity-20 hover:bg-slate-800 rounded transition-colors"
-                    title="Move Up"
+                    onClick={() => toggleHeroSlideStatus(slide.id)}
+                    className={`p-2 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-colors ${slide.isActive ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20' : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-white'}`}
+                    title={slide.isActive ? "Hide from website" : "Make slide live"}
                   >
-                    <ArrowUp className="w-3.5 h-3.5" />
+                    {slide.isActive ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                    <span className="hidden sm:inline">{slide.isActive ? 'Active' : 'Hidden'}</span>
                   </button>
-                  <span className="font-mono text-xs font-bold text-slate-300">#{index + 1}</span>
+
                   <button
                     type="button"
-                    onClick={() => handleMoveDown(index)}
-                    disabled={index === cmsHeroSlides.length - 1}
-                    className="p-1 hover:text-white disabled:opacity-20 hover:bg-slate-800 rounded transition-colors"
-                    title="Move Down"
+                    onClick={() => {
+                      setEditingSlide(slide);
+                      setSlideEditorOpen(true);
+                    }}
+                    className="btn-secondary py-1.5 px-3 text-xs"
+                    title="Edit Slide Content"
                   >
-                    <ArrowDown className="w-3.5 h-3.5" />
+                    <Edit2 className="w-3.5 h-3.5" /> Edit
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setSlideToDelete(slide)}
+                    className="p-2 rounded-xl bg-rose-500/10 text-rose-400 hover:bg-rose-500 hover:text-white border border-rose-500/30 transition-colors"
+                    title="Delete Slide"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </div>
-
-                {/* Slide Preview Image */}
-                <div className="w-20 h-16 sm:w-24 sm:h-20 rounded-xl overflow-hidden border border-slate-700 bg-slate-950 shrink-0 relative group">
-                  <img
-                    src={devicePreview === 'mobile' ? (slide.mobileImage || slide.image) : slide.image}
-                    alt={slide.title}
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[10px] font-bold">
-                    {devicePreview === 'mobile' ? 'Mobile' : 'Desktop'}
-                  </div>
-                </div>
-
-                {/* Text Details depending on Preview Mode */}
-                <div className="truncate flex-1 space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] uppercase font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
-                      {slide.badge}
-                    </span>
-                    <span className="text-[10px] font-mono text-indigo-400 font-bold">
-                      {slide.tag}
-                    </span>
-                    <span className={`text-[10px] px-2 py-0.2 rounded-full font-bold ${slide.isActive ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-slate-800 text-slate-500'}`}>
-                      {slide.isActive ? 'Live' : 'Disabled'}
-                    </span>
-                  </div>
-
-                  <h3 className="font-bold text-white text-sm truncate">
-                    {devicePreview === 'mobile' ? (slide.mobileTitle || slide.title) : slide.title}
-                  </h3>
-
-                  <p className="text-xs text-slate-400 line-clamp-1 max-w-xl">
-                    {devicePreview === 'mobile' ? (slide.mobileSubtitle || slide.subtitle) : slide.subtitle}
-                  </p>
-
-                  <div className="flex items-center gap-2 text-[11px] text-slate-500 pt-0.5">
-                    <span>CTA: <strong className="text-slate-300">{devicePreview === 'mobile' ? slide.mobileCtaText : slide.desktopCtaText}</strong></span>
-                    <span>•</span>
-                    <span className="font-mono text-indigo-400">{slide.ctaLink}</span>
-                  </div>
-                </div>
               </div>
-
-              {/* Right Slide Action Controls */}
-              <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
-                <button
-                  type="button"
-                  onClick={() => toggleHeroSlideStatus(slide.id)}
-                  className={`p-2 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-colors ${slide.isActive ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20' : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-white'}`}
-                  title={slide.isActive ? "Hide from website" : "Make slide live"}
-                >
-                  {slide.isActive ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
-                  <span className="hidden sm:inline">{slide.isActive ? 'Active' : 'Hidden'}</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEditingSlide(slide);
-                    setSlideEditorOpen(true);
-                  }}
-                  className="btn-secondary py-1.5 px-3 text-xs"
-                  title="Edit Slide Content"
-                >
-                  <Edit2 className="w-3.5 h-3.5" /> Edit
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setSlideToDelete(slide)}
-                  className="p-2 rounded-xl bg-rose-500/10 text-rose-400 hover:bg-rose-500 hover:text-white border border-rose-500/30 transition-colors"
-                  title="Delete Slide"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* ═══════════════════════════════════════════════════════════════════ */}

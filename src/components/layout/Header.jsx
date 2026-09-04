@@ -13,6 +13,7 @@ import {
   ChevronDown,
   ExternalLink,
   Package,
+  RefreshCw,
   X
 } from 'lucide-react';
 
@@ -26,6 +27,9 @@ export const Header = () => {
     orders,
     customers,
     stats,
+    isLoading,
+    isRefreshing,
+    refreshData,
     showToast
   } = useAdmin();
 
@@ -210,6 +214,16 @@ export const Header = () => {
         >
           <Plus className="w-3.5 h-3.5" />
           Add Product
+        </button>
+
+        {/* Refresh Live Data Button */}
+        <button
+          onClick={() => refreshData()}
+          disabled={isRefreshing || isLoading}
+          className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-colors disabled:opacity-50"
+          title="Refresh dashboard data"
+        >
+          <RefreshCw className={`w-4 h-4 ${isRefreshing || isLoading ? 'animate-spin text-indigo-400' : ''}`} />
         </button>
 
         {/* Notifications Dropdown */}

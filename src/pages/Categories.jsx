@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { useAdmin } from '../context/AdminContext.jsx';
+import { usePageLoading } from '../hooks/usePageLoading.js';
+import { CategoriesGridSkeleton } from '../components/ui/Skeleton.jsx';
 import { ProductImage } from '../components/ui/ProductImage.jsx';
 import {
   Tags,
@@ -15,6 +17,7 @@ import {
 
 export const Categories = () => {
   const { categories, products, addCategory, updateCategory, deleteCategory, showToast } = useAdmin();
+  const isPageLoading = usePageLoading(450);
 
   const [editingCategory, setEditingCategory] = useState(null);
   const [subcatInput, setSubcatInput] = useState('');
@@ -90,83 +93,87 @@ export const Categories = () => {
 
       {/* CATEGORIES GRID */}
       <div className="flex-1 min-h-0 overflow-y-auto pr-1">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 pb-2">
-        {categoriesWithCounts.map((cat) => (
-          <div key={cat.id} className="admin-card p-5 flex flex-col justify-between group admin-card-hover">
-            <div>
-              {/* Card Header */}
-              <div className="flex items-start justify-between gap-3 mb-3">
-                <div className="flex items-center gap-3">
-                  <ProductImage
-                    src={cat.image}
-                    category={cat.name}
-                    alt={cat.name}
-                    className="w-12 h-12 rounded-xl"
-                  />
-                  <div>
-                    <h3 className="font-bold text-slate-100 text-base leading-tight">{cat.name}</h3>
-                    <span className="text-[11px] text-indigo-400 font-mono">/{cat.slug}</span>
+        {isPageLoading ? (
+          <CategoriesGridSkeleton count={6} />
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 pb-2">
+            {categoriesWithCounts.map((cat) => (
+              <div key={cat.id} className="admin-card p-5 flex flex-col justify-between group admin-card-hover">
+                <div>
+                  {/* Card Header */}
+                  <div className="flex items-start justify-between gap-3 mb-3">
+                    <div className="flex items-center gap-3">
+                      <ProductImage
+                        src={cat.image}
+                        category={cat.name}
+                        alt={cat.name}
+                        className="w-12 h-12 rounded-xl"
+                      />
+                      <div>
+                        <h3 className="font-bold text-slate-100 text-base leading-tight">{cat.name}</h3>
+                        <span className="text-[11px] text-indigo-400 font-mono">/{cat.slug}</span>
+                      </div>
+                    </div>
+
+                    <span className="badge-indigo font-bold text-xs px-2.5 py-0.5 rounded-full">
+                      {cat.actualCount} Products
+                    </span>
+                  </div>
+
+                  {/* Description */}
+                  <p className="text-xs text-slate-400 line-clamp-2 mb-4 leading-relaxed">
+                    {cat.description || 'Collection of genuine handmade craft & fashion decor items.'}
+                  </p>
+
+                  {/* Subcategories Tags */}
+                  <div className="space-y-1.5 mb-4">
+                    <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider block">
+                      Subcategories ({cat.subcategories?.length || 0}):
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {cat.subcategories?.map((sub) => (
+                        <span
+                          key={sub.slug}
+                          className="bg-slate-900 border border-slate-800 text-slate-300 text-[11px] px-2.5 py-0.5 rounded-lg"
+                        >
+                          {sub.name}
+                        </span>
+                      ))}
+                    </div>
                   </div>
                 </div>
 
-                <span className="badge-indigo font-bold text-xs px-2.5 py-0.5 rounded-full">
-                  {cat.actualCount} Products
-                </span>
-              </div>
+                {/* Bottom Actions */}
+                <div className="pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs">
+                  <span className="text-emerald-400 text-[11px] font-semibold flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Active on Storefront
+                  </span>
 
-              {/* Description */}
-              <p className="text-xs text-slate-400 line-clamp-2 mb-4 leading-relaxed">
-                {cat.description || 'Collection of genuine handmade craft & fashion decor items.'}
-              </p>
-
-              {/* Subcategories Tags */}
-              <div className="space-y-1.5 mb-4">
-                <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider block">
-                  Subcategories ({cat.subcategories?.length || 0}):
-                </span>
-                <div className="flex flex-wrap gap-1.5">
-                  {cat.subcategories?.map((sub) => (
-                    <span
-                      key={sub.slug}
-                      className="bg-slate-900 border border-slate-800 text-slate-300 text-[11px] px-2.5 py-0.5 rounded-lg"
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => setEditingCategory({ ...cat })}
+                      className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
+                      title="Edit Category"
                     >
-                      {sub.name}
-                    </span>
-                  ))}
+                      <Edit2 className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (window.confirm(`Delete category "${cat.name}"?`)) {
+                          deleteCategory(cat.id);
+                        }
+                      }}
+                      className="p-1.5 text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 rounded-lg transition-colors"
+                      title="Delete Category"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-
-            {/* Bottom Actions */}
-            <div className="pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs">
-              <span className="text-emerald-400 text-[11px] font-semibold flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Active on Storefront
-              </span>
-
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={() => setEditingCategory({ ...cat })}
-                  className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
-                  title="Edit Category"
-                >
-                  <Edit2 className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => {
-                    if (window.confirm(`Delete category "${cat.name}"?`)) {
-                      deleteCategory(cat.id);
-                    }
-                  }}
-                  className="p-1.5 text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 rounded-lg transition-colors"
-                  title="Delete Category"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
+            ))}
           </div>
-        ))}
-        </div>
+        )}
       </div>
 
       {/* EDIT / CREATE CATEGORY MODAL */}

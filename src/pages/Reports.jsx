@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { useAdmin } from '../context/AdminContext.jsx';
+import { usePageLoading } from '../hooks/usePageLoading.js';
+import { MetricCardSkeleton, ChartCardSkeleton, Skeleton } from '../components/ui/Skeleton.jsx';
 import {
   BarChart3,
   TrendingUp,
@@ -37,6 +39,7 @@ const reportDataMonthly = [
 
 export const Reports = () => {
   const { stats, orders, products, showToast } = useAdmin();
+  const isPageLoading = usePageLoading(450);
 
   const [dateRange, setDateRange] = useState('Last 30 Days');
   const [reportType, setReportType] = useState('revenue');
@@ -93,31 +96,39 @@ export const Reports = () => {
       </div>
 
       {/* SUMMARY REPORT CARDS */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
-        <div className="admin-card p-4">
-          <span className="text-xs font-semibold text-slate-400">Gross Merchandise Value</span>
-          <p className="text-xl font-black text-white mt-1.5">₹3,49,000</p>
-          <span className="text-[11px] text-emerald-400 font-medium block mt-0.5">+24.6% vs previous cycle</span>
+      {isPageLoading ? (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <MetricCardSkeleton key={i} />
+          ))}
         </div>
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
+          <div className="admin-card p-4">
+            <span className="text-xs font-semibold text-slate-400">Gross Merchandise Value</span>
+            <p className="text-xl font-black text-white mt-1.5">₹3,49,000</p>
+            <span className="text-[11px] text-emerald-400 font-medium block mt-0.5">+24.6% vs previous cycle</span>
+          </div>
 
-        <div className="admin-card p-4">
-          <span className="text-xs font-semibold text-slate-400">Net Profit (After GST & Courier)</span>
-          <p className="text-xl font-black text-emerald-400 mt-1.5">₹1,91,900</p>
-          <span className="text-[11px] text-emerald-500/80 font-medium block mt-0.5">55.0% Gross Margin</span>
-        </div>
+          <div className="admin-card p-4">
+            <span className="text-xs font-semibold text-slate-400">Net Profit (After GST & Courier)</span>
+            <p className="text-xl font-black text-emerald-400 mt-1.5">₹1,91,900</p>
+            <span className="text-[11px] text-emerald-500/80 font-medium block mt-0.5">55.0% Gross Margin</span>
+          </div>
 
-        <div className="admin-card p-4">
-          <span className="text-xs font-semibold text-slate-400">Return / Refund Ratio</span>
-          <p className="text-xl font-black text-slate-200 mt-1.5">2.1%</p>
-          <span className="text-[11px] text-emerald-400 font-medium block mt-0.5">Below industry average (4%)</span>
-        </div>
+          <div className="admin-card p-4">
+            <span className="text-xs font-semibold text-slate-400">Return / Refund Ratio</span>
+            <p className="text-xl font-black text-slate-200 mt-1.5">2.1%</p>
+            <span className="text-[11px] text-emerald-400 font-medium block mt-0.5">Below industry average (4%)</span>
+          </div>
 
-        <div className="admin-card p-4">
-          <span className="text-xs font-semibold text-slate-400">Inventory Asset Valuation</span>
-          <p className="text-xl font-black text-amber-400 mt-1.5">₹14,82,500</p>
-          <span className="text-[11px] text-slate-500 font-medium block mt-0.5">At catalog retail valuation</span>
+          <div className="admin-card p-4">
+            <span className="text-xs font-semibold text-slate-400">Inventory Asset Valuation</span>
+            <p className="text-xl font-black text-amber-400 mt-1.5">₹14,82,500</p>
+            <span className="text-[11px] text-slate-500 font-medium block mt-0.5">At catalog retail valuation</span>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* REPORT TYPE SELECTOR STRIP */}
       <div className="admin-card p-3 flex flex-wrap items-center gap-2 text-xs">
@@ -141,56 +152,60 @@ export const Reports = () => {
       </div>
 
       {/* MAIN REPORT CHART */}
-      <div className="admin-card p-5">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h3 className="font-bold text-white text-base capitalize">{reportType.replace('_', ' ')} Performance Trend</h3>
-            <p className="text-xs text-slate-400">Monthly breakdown for {dateRange}</p>
+      {isPageLoading ? (
+        <ChartCardSkeleton height="h-72" />
+      ) : (
+        <div className="admin-card p-5">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="font-bold text-white text-base capitalize">{reportType.replace('_', ' ')} Performance Trend</h3>
+              <p className="text-xs text-slate-400">Monthly breakdown for {dateRange}</p>
+            </div>
+            <button
+              onClick={() => handleExportCSV(reportType)}
+              className="btn-secondary py-1 px-2.5 text-xs"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" /> Export Table
+            </button>
           </div>
-          <button
-            onClick={() => handleExportCSV(reportType)}
-            className="btn-secondary py-1 px-2.5 text-xs"
-          >
-            <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" /> Export Table
-          </button>
-        </div>
 
-        <div className="h-72 w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            {reportType === 'profit' ? (
-              <BarChart data={reportDataMonthly} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1E293B" vertical={false} />
-                <XAxis dataKey="period" stroke="#64748B" fontSize={11} tickLine={false} />
-                <YAxis stroke="#64748B" fontSize={11} tickLine={false} tickFormatter={(v) => `₹${v / 1000}k`} />
-                <Tooltip
-                  contentStyle={{ backgroundColor: '#0F172A', borderColor: '#334155', borderRadius: '0.75rem', fontSize: '12px' }}
-                  formatter={(v) => [`₹${v.toLocaleString()}`, 'Amount']}
-                />
-                <Bar dataKey="profit" fill="#10B981" radius={[6, 6, 0, 0]} name="Net Profit" />
-                <Bar dataKey="grossSales" fill="#6366F1" radius={[6, 6, 0, 0]} name="Gross Sales" />
-              </BarChart>
-            ) : (
-              <AreaChart data={reportDataMonthly} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#6366F1" stopOpacity={0.4} />
-                    <stop offset="95%" stopColor="#6366F1" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1E293B" vertical={false} />
-                <XAxis dataKey="period" stroke="#64748B" fontSize={11} tickLine={false} />
-                <YAxis stroke="#64748B" fontSize={11} tickLine={false} tickFormatter={(v) => `₹${v / 1000}k`} />
-                <Tooltip
-                  contentStyle={{ backgroundColor: '#0F172A', borderColor: '#334155', borderRadius: '0.75rem', fontSize: '12px' }}
-                  formatter={(v) => [`₹${v.toLocaleString()}`, 'Amount']}
-                />
-                <Area type="monotone" dataKey="grossSales" stroke="#6366F1" strokeWidth={2.5} fillOpacity={1} fill="url(#colorSales)" name="Gross Sales" />
-                <Area type="monotone" dataKey="netSales" stroke="#10B981" strokeWidth={2} fillOpacity={0} name="Net Sales" />
-              </AreaChart>
-            )}
-          </ResponsiveContainer>
+          <div className="h-72 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              {reportType === 'profit' ? (
+                <BarChart data={reportDataMonthly} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1E293B" vertical={false} />
+                  <XAxis dataKey="period" stroke="#64748B" fontSize={11} tickLine={false} />
+                  <YAxis stroke="#64748B" fontSize={11} tickLine={false} tickFormatter={(v) => `₹${v / 1000}k`} />
+                  <Tooltip
+                    contentStyle={{ backgroundColor: '#0F172A', borderColor: '#334155', borderRadius: '0.75rem', fontSize: '12px' }}
+                    formatter={(v) => [`₹${v.toLocaleString()}`, 'Amount']}
+                  />
+                  <Bar dataKey="profit" fill="#10B981" radius={[6, 6, 0, 0]} name="Net Profit" />
+                  <Bar dataKey="grossSales" fill="#6366F1" radius={[6, 6, 0, 0]} name="Gross Sales" />
+                </BarChart>
+              ) : (
+                <AreaChart data={reportDataMonthly} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#6366F1" stopOpacity={0.4} />
+                      <stop offset="95%" stopColor="#6366F1" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1E293B" vertical={false} />
+                  <XAxis dataKey="period" stroke="#64748B" fontSize={11} tickLine={false} />
+                  <YAxis stroke="#64748B" fontSize={11} tickLine={false} tickFormatter={(v) => `₹${v / 1000}k`} />
+                  <Tooltip
+                    contentStyle={{ backgroundColor: '#0F172A', borderColor: '#334155', borderRadius: '0.75rem', fontSize: '12px' }}
+                    formatter={(v) => [`₹${v.toLocaleString()}`, 'Amount']}
+                  />
+                  <Area type="monotone" dataKey="grossSales" stroke="#6366F1" strokeWidth={2.5} fillOpacity={1} fill="url(#colorSales)" name="Gross Sales" />
+                  <Area type="monotone" dataKey="netSales" stroke="#10B981" strokeWidth={2} fillOpacity={0} name="Net Sales" />
+                </AreaChart>
+              )}
+            </ResponsiveContainer>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* DETAILED DATA TABLE */}
       <div className="admin-card overflow-hidden">
@@ -212,19 +227,33 @@ export const Reports = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/60">
-              {reportDataMonthly.map((row, i) => (
-                <tr key={i} className="hover:bg-slate-800/30">
-                  <td className="py-3 px-4 font-semibold text-slate-200">{row.period}</td>
-                  <td className="py-3 px-4 text-right font-bold text-slate-100">₹{row.grossSales.toLocaleString()}</td>
-                  <td className="py-3 px-4 text-right font-semibold text-slate-300">₹{row.netSales.toLocaleString()}</td>
-                  <td className="py-3 px-4 text-center font-bold text-indigo-400">{row.orders}</td>
-                  <td className="py-3 px-4 text-center text-rose-400 font-bold">{row.returns}</td>
-                  <td className="py-3 px-4 text-right font-black text-emerald-400">₹{row.profit.toLocaleString()}</td>
-                  <td className="py-3 px-4 text-center font-semibold text-slate-300">
-                    {Math.round((row.profit / row.grossSales) * 100)}%
-                  </td>
-                </tr>
-              ))}
+              {isPageLoading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <tr key={i} className="border-b border-slate-800/40">
+                    <td className="py-3 px-4"><Skeleton className="h-3.5 w-24" /></td>
+                    <td className="py-3 px-4 text-right"><Skeleton className="h-3.5 w-20 ml-auto" /></td>
+                    <td className="py-3 px-4 text-right"><Skeleton className="h-3.5 w-20 ml-auto" /></td>
+                    <td className="py-3 px-4 text-center"><Skeleton className="h-3.5 w-10 mx-auto" /></td>
+                    <td className="py-3 px-4 text-center"><Skeleton className="h-3.5 w-8 mx-auto" /></td>
+                    <td className="py-3 px-4 text-right"><Skeleton className="h-3.5 w-20 ml-auto" /></td>
+                    <td className="py-3 px-4 text-center"><Skeleton className="h-3.5 w-10 mx-auto" /></td>
+                  </tr>
+                ))
+              ) : (
+                reportDataMonthly.map((row, i) => (
+                  <tr key={i} className="hover:bg-slate-800/30">
+                    <td className="py-3 px-4 font-semibold text-slate-200">{row.period}</td>
+                    <td className="py-3 px-4 text-right font-bold text-slate-100">₹{row.grossSales.toLocaleString()}</td>
+                    <td className="py-3 px-4 text-right font-semibold text-slate-300">₹{row.netSales.toLocaleString()}</td>
+                    <td className="py-3 px-4 text-center font-bold text-indigo-400">{row.orders}</td>
+                    <td className="py-3 px-4 text-center text-rose-400 font-bold">{row.returns}</td>
+                    <td className="py-3 px-4 text-right font-black text-emerald-400">₹{row.profit.toLocaleString()}</td>
+                    <td className="py-3 px-4 text-center font-semibold text-slate-300">
+                      {Math.round((row.profit / row.grossSales) * 100)}%
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

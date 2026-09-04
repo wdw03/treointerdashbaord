@@ -1,5 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useAdmin } from '../../context/AdminContext.jsx';
+import { usePageLoading } from '../../hooks/usePageLoading.js';
+import { BlogTableSkeleton, Skeleton } from '../../components/ui/Skeleton.jsx';
 import { BlogEditorModal } from '../../components/cms/BlogEditorModal.jsx';
 import { DeleteConfirmModal } from '../../components/ui/DeleteConfirmModal.jsx';
 import {
@@ -26,6 +28,7 @@ export const BlogManagementCms = () => {
     toggleBlogPublish,
     showToast
   } = useAdmin();
+  const isPageLoading = usePageLoading(450);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
@@ -59,9 +62,13 @@ export const BlogManagementCms = () => {
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-black tracking-tight text-white">Artisan Blog &amp; Journal CMS</h1>
-            <span className="bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 text-xs font-semibold px-2.5 py-0.5 rounded-full">
-              {cmsBlogs.length} Stories Available
-            </span>
+            {isPageLoading ? (
+              <Skeleton className="w-24 h-5 rounded-full" />
+            ) : (
+              <span className="bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 text-xs font-semibold px-2.5 py-0.5 rounded-full">
+                {cmsBlogs.length} Stories Available
+              </span>
+            )}
           </div>
           <p className="text-xs sm:text-sm text-slate-400 mt-1">
             Publish educational guides on Zari embroidery, Ayurvedic copper wellness, and sacred pooja rituals.
@@ -138,7 +145,9 @@ export const BlogManagementCms = () => {
               </tr>
             </thead>
             <tbody>
-              {filteredBlogs.length === 0 ? (
+              {isPageLoading ? (
+                <BlogTableSkeleton rows={6} />
+              ) : filteredBlogs.length === 0 ? (
                 <tr>
                   <td colSpan="8" className="text-center py-12 text-slate-500 text-sm">
                     No blog articles match your current search criteria.
@@ -245,7 +254,11 @@ export const BlogManagementCms = () => {
         </div>
 
         <div className="p-3.5 border-t border-slate-800/80 text-xs text-slate-400 flex justify-between items-center shrink-0 bg-slate-900/90">
-          <span>Showing {filteredBlogs.length} of {cmsBlogs.length} articles</span>
+          {isPageLoading ? (
+            <Skeleton className="h-4 w-36" />
+          ) : (
+            <span>Showing {filteredBlogs.length} of {cmsBlogs.length} articles</span>
+          )}
           <span className="text-[11px] text-slate-500">Includes Google Search SEO Metadata</span>
         </div>
       </div>

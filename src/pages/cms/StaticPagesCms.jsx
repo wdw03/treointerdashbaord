@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { useAdmin } from '../../context/AdminContext.jsx';
+import { usePageLoading } from '../../hooks/usePageLoading.js';
+import { Skeleton } from '../../components/ui/Skeleton.jsx';
 import {
   FileText,
   HelpCircle,
@@ -16,6 +18,7 @@ import {
 
 export const StaticPagesCms = () => {
   const { cmsPages, updatePage, showToast } = useAdmin();
+  const isPageLoading = usePageLoading(450);
 
   const [activeTab, setActiveTab] = useState('about'); // 'about' | 'contact' | 'faqs'
 
@@ -99,7 +102,7 @@ export const StaticPagesCms = () => {
           onClick={() => setActiveTab('faqs')}
           className={`px-4 py-2 rounded-xl font-bold flex items-center gap-2 transition-colors ${activeTab === 'faqs' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-white'}`}
         >
-          <HelpCircle className="w-4 h-4" /> FAQ Accordions ({faqs.length})
+          <HelpCircle className="w-4 h-4" /> FAQ Accordions {isPageLoading ? '(..)' : `(${faqs.length})`}
         </button>
       </div>
 
@@ -270,29 +273,45 @@ export const StaticPagesCms = () => {
 
           {/* FAQ List */}
           <div className="space-y-3">
-            {faqs.map((faq, index) => (
-              <div key={faq.id} className="admin-card p-4 space-y-2 text-xs">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-start gap-2.5">
-                    <span className="font-mono text-indigo-400 font-bold shrink-0">Q{index + 1}.</span>
-                    <h4 className="font-bold text-slate-100 text-xs">{faq.question}</h4>
+            {isPageLoading ? (
+              Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="admin-card p-4 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2.5 flex-1">
+                      <Skeleton className="h-3.5 w-6 rounded" />
+                      <Skeleton className="h-3.5 w-64" />
+                    </div>
+                    <Skeleton className="h-6 w-6 rounded-lg shrink-0" />
+                  </div>
+                  <Skeleton className="h-3 w-5/6 opacity-70 ml-8" />
+                  <Skeleton className="h-3 w-2/3 opacity-50 ml-8" />
+                </div>
+              ))
+            ) : (
+              faqs.map((faq, index) => (
+                <div key={faq.id} className="admin-card p-4 space-y-2 text-xs">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-2.5">
+                      <span className="font-mono text-indigo-400 font-bold shrink-0">Q{index + 1}.</span>
+                      <h4 className="font-bold text-slate-100 text-xs">{faq.question}</h4>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteFaq(faq.id)}
+                      className="p-1.5 text-rose-400 hover:text-white hover:bg-rose-500/20 rounded-lg transition-colors shrink-0"
+                      title="Delete Question"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() => handleDeleteFaq(faq.id)}
-                    className="p-1.5 text-rose-400 hover:text-white hover:bg-rose-500/20 rounded-lg transition-colors shrink-0"
-                    title="Delete Question"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+                  <p className="text-slate-400 pl-6 leading-relaxed">
+                    {faq.answer}
+                  </p>
                 </div>
-
-                <p className="text-slate-400 pl-6 leading-relaxed">
-                  {faq.answer}
-                </p>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
       )}

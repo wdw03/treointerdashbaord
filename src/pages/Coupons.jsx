@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { useAdmin } from '../context/AdminContext.jsx';
+import { usePageLoading } from '../hooks/usePageLoading.js';
+import { CouponsGridSkeleton, ChartCardSkeleton, Skeleton } from '../components/ui/Skeleton.jsx';
 import {
   TicketPercent,
   Plus,
@@ -23,6 +25,7 @@ import {
 
 export const Coupons = () => {
   const { coupons, addCoupon, toggleCouponStatus, deleteCoupon, categories, showToast } = useAdmin();
+  const isPageLoading = usePageLoading(450);
 
   const [editingCoupon, setEditingCoupon] = useState(null);
 
@@ -75,37 +78,57 @@ export const Coupons = () => {
       </div>
 
       {/* USAGE ANALYTICS CHART */}
-      <div className="admin-card p-4 shrink-0">
-        <div className="flex items-center justify-between mb-3">
-          <div>
-            <h3 className="font-bold text-white text-sm">Coupon Redemption Analytics</h3>
-            <p className="text-xs text-slate-400">Total times each festival offer or code was redeemed by customers</p>
+      {isPageLoading ? (
+        <div className="admin-card p-4 shrink-0 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="space-y-1">
+              <Skeleton className="h-4 w-44" />
+              <Skeleton className="h-3 w-64" />
+            </div>
+            <Skeleton className="h-4 w-28" />
           </div>
-          <span className="text-xs text-indigo-400 font-semibold flex items-center gap-1">
-            <BarChart2 className="w-4 h-4" /> Real-time tracking
-          </span>
+          <div className="h-44 w-full bg-slate-900/60 rounded-xl border border-slate-800/60 p-4 flex items-end justify-between gap-3">
+            {[45, 60, 35, 80, 65, 90, 50, 75].map((h, i) => (
+              <Skeleton key={i} className="flex-1 rounded-t-lg opacity-60" style={{ height: `${h}%` }} />
+            ))}
+          </div>
         </div>
+      ) : (
+        <div className="admin-card p-4 shrink-0">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <h3 className="font-bold text-white text-sm">Coupon Redemption Analytics</h3>
+              <p className="text-xs text-slate-400">Total times each festival offer or code was redeemed by customers</p>
+            </div>
+            <span className="text-xs text-indigo-400 font-semibold flex items-center gap-1">
+              <BarChart2 className="w-4 h-4" /> Real-time tracking
+            </span>
+          </div>
 
-        <div className="h-44 w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={couponChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1E293B" vertical={false} />
-              <XAxis dataKey="name" stroke="#64748B" fontSize={11} tickLine={false} />
-              <YAxis stroke="#64748B" fontSize={11} tickLine={false} />
-              <Tooltip
-                contentStyle={{ backgroundColor: '#0F172A', borderColor: '#334155', borderRadius: '0.75rem', fontSize: '12px' }}
-                formatter={(v) => [`${v} redemptions`, 'Usage']}
-              />
-              <Bar dataKey="uses" fill="#6366F1" radius={[6, 6, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
+          <div className="h-44 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={couponChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#1E293B" vertical={false} />
+                <XAxis dataKey="name" stroke="#64748B" fontSize={11} tickLine={false} />
+                <YAxis stroke="#64748B" fontSize={11} tickLine={false} />
+                <Tooltip
+                  contentStyle={{ backgroundColor: '#0F172A', borderColor: '#334155', borderRadius: '0.75rem', fontSize: '12px' }}
+                  formatter={(v) => [`${v} redemptions`, 'Usage']}
+                />
+                <Bar dataKey="uses" fill="#6366F1" radius={[6, 6, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* COUPONS CARDS GRID */}
       <div className="flex-1 min-h-0 overflow-y-auto pr-1">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pb-2">
-        {coupons.map((c) => (
+        {isPageLoading ? (
+          <CouponsGridSkeleton count={6} />
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pb-2">
+          {coupons.map((c) => (
           <div key={c.id} className="admin-card p-5 flex flex-col justify-between group admin-card-hover">
             <div>
               {/* Header with Code */}
@@ -167,7 +190,8 @@ export const Coupons = () => {
             </div>
           </div>
         ))}
-        </div>
+          </div>
+        )}
       </div>
 
       {/* CREATE COUPON MODAL */}
