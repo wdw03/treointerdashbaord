@@ -21,7 +21,30 @@ export const AdminProvider = ({ children }) => {
   const [orders, setOrders] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [coupons, setCoupons] = useState(initialCoupons);
+  const [inventory, setInventory] = useState(() => {
+    return initialProductsList.map((p) => ({
+      productId: p.id,
+      name: p.name,
+      sku: p.sku || `TE-${p.category ? p.category.substring(0, 3).toUpperCase() : 'PRD'}-${p.id}`,
+      category: p.category || 'General',
+      subcategory: p.subcategory || '',
+      price: Number(p.price || 0),
+      image: Array.isArray(p.images) && p.images.length > 0 ? p.images[0] : (typeof p.images === 'string' ? p.images : '/logo.png'),
+      totalStock: Number(p.stock ?? 50),
+      availableStock: Number(p.stock ?? 50),
+      reservedStock: 0,
+      lowStockThreshold: 15,
+      status: Number(p.stock ?? 50) === 0 ? 'Out of Stock' : Number(p.stock ?? 50) <= 15 ? 'Low Stock' : 'In Stock',
+      lastRestocked: p.updated_at ? p.updated_at.split('T')[0] : '2026-09-08',
+      variants: (p.colors || []).map((c) => ({
+        name: typeof c === 'object' ? c.name : c,
+        stock: Math.floor(Number(p.stock ?? 50) / ((p.colors?.length) || 1)),
+      })),
+    }));
+  });
   const [stockLogs, setStockLogs] = useState([]);
+  const [payments, setPayments] = useState([]);
+  const [returns, setReturns] = useState([]);
 
   // ═══════════════════════════════════════════════════════════════
   // SUPER ADMIN AUTHENTICATION STATE
@@ -136,10 +159,53 @@ export const AdminProvider = ({ children }) => {
         if (!isMounted) return;
 
         if (prodsRes.status === 'fulfilled' && Array.isArray(prodsRes.value?.products)) {
-          setProducts(prodsRes.value.products);
+          const liveProds = prodsRes.value.products;
+          setProducts(liveProds);
+          setInventory(liveProds.map((p) => ({
+            productId: p.id,
+            name: p.name,
+            sku: p.sku || `TE-${p.category ? p.category.substring(0, 3).toUpperCase() : 'PRD'}-${p.id}`,
+            category: p.category || 'General',
+            subcategory: p.subcategory || '',
+            price: Number(p.price || 0),
+            image: Array.isArray(p.images) && p.images.length > 0 ? p.images[0] : (typeof p.images === 'string' ? p.images : '/logo.png'),
+            totalStock: Number(p.stock ?? 50),
+            availableStock: Number(p.stock ?? 50),
+            reservedStock: 0,
+            lowStockThreshold: 15,
+            status: Number(p.stock ?? 50) === 0 ? 'Out of Stock' : Number(p.stock ?? 50) <= 15 ? 'Low Stock' : 'In Stock',
+            lastRestocked: p.updated_at ? p.updated_at.split('T')[0] : '2026-09-08',
+            variants: (p.colors || []).map((c) => ({
+              name: typeof c === 'object' ? c.name : c,
+              stock: Math.floor(Number(p.stock ?? 50) / ((p.colors?.length) || 1)),
+            })),
+          })));
         }
         if (ordersRes.status === 'fulfilled' && Array.isArray(ordersRes.value?.orders)) {
-          setOrders(ordersRes.value.orders);
+          const liveOrders = ordersRes.value.orders;
+          setOrders(liveOrders);
+          setPayments(liveOrders.map((o) => ({
+            id: `PAY-${o.id}`,
+            orderId: o.order_number || o.id,
+            customerName: o.customer_name || o.shipping_address?.name || 'Patron',
+            amount: Number(o.total || o.totalAmount || 0),
+            method: o.payment_method || 'Razorpay',
+            status: o.payment_status === 'paid' ? 'Completed' : (o.payment_status || 'Pending'),
+            transactionId: o.razorpay_payment_id || `txn_${o.id}`,
+            date: o.created_at ? o.created_at.split('T')[0] : '2026-09-08',
+          })));
+          setReturns(liveOrders
+            .filter((o) => ['return_requested', 'returned', 'refunded'].includes((o.status || '').toLowerCase()))
+            .map((o) => ({
+              id: `RET-${o.id}`,
+              orderId: o.order_number || o.id,
+              customerName: o.customer_name || o.shipping_address?.name || 'Patron',
+              items: o.order_items || [],
+              reason: o.return_reason || 'Customer Request',
+              status: o.status,
+              refundAmount: Number(o.total || 0),
+              date: o.updated_at ? o.updated_at.split('T')[0] : '2026-09-08',
+            })));
         }
         if (catsRes.status === 'fulfilled' && Array.isArray(catsRes.value?.categories)) {
           setCategories(catsRes.value.categories);
