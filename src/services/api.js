@@ -1,7 +1,11 @@
 ﻿// Centralized API Client for Trio Ecart Admin Dashboard
-const API_BASE = import.meta.env.VITE_API_URL 
-  ? `${import.meta.env.VITE_API_URL.replace(/\/+$/, '')}/api` 
-  : '/api';
+// Direct live production backend fallback for Vercel deployments
+const LIVE_BACKEND_URL = 'https://treobackend.vercel.app';
+const RAW_URL = (import.meta.env.VITE_API_URL && import.meta.env.VITE_API_URL !== '')
+  ? import.meta.env.VITE_API_URL 
+  : LIVE_BACKEND_URL;
+
+const API_BASE = `${RAW_URL.replace(/\/+$/, '')}/api`;
 
 async function request(endpoint, options = {}) {
   const url = `${API_BASE}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
