@@ -1,9 +1,10 @@
-import {
+﻿import {
   initialHeroSlides,
   initialHomeSections,
   initialCmsBlogs,
   initialCmsPages
 } from '../data/initialCmsData.js';
+import { adminApi } from './api.js';
 
 const STORAGE_KEYS = {
   HERO_SLIDES: 'trio_cms_hero_slides_v1',
@@ -33,7 +34,9 @@ const setStorageData = (key, data) => {
 };
 
 export const cmsService = {
-  // ─── HERO SLIDES CRUD ───
+  // ═══════════════════════════════════════════════════════════════
+  // HERO SLIDES CRUD
+  // ═══════════════════════════════════════════════════════════════
   getHeroSlides: async () => {
     return getStorageData(STORAGE_KEYS.HERO_SLIDES, initialHeroSlides);
   },
@@ -43,10 +46,8 @@ export const cmsService = {
     let updated;
 
     if (slideData.id) {
-      // Update existing
       updated = slides.map((s) => (s.id === slideData.id ? { ...s, ...slideData } : s));
     } else {
-      // Create new
       const newSlide = {
         ...slideData,
         id: `SLIDE-${Date.now()}`,
@@ -84,7 +85,9 @@ export const cmsService = {
     return updated;
   },
 
-  // ─── HOME SECTIONS CONFIG ───
+  // ═══════════════════════════════════════════════════════════════
+  // HOME SECTIONS CONFIG
+  // ═══════════════════════════════════════════════════════════════
   getHomeSections: async () => {
     return getStorageData(STORAGE_KEYS.HOME_SECTIONS, initialHomeSections);
   },
@@ -110,22 +113,44 @@ export const cmsService = {
     return updated;
   },
 
-  // ─── BLOG ARTICLES CRUD ───
+  // ═══════════════════════════════════════════════════════════════
+  // BLOG ARTICLES CRUD (Synced with Live API & blogs.json)
+  // ═══════════════════════════════════════════════════════════════
   getBlogs: async () => {
+    try {
+      const res = await adminApi.getBlogs();
+      if (res && res.blogs && res.blogs.length) {
+        setStorageData(STORAGE_KEYS.BLOGS, res.blogs);
+        return res.blogs;
+      }
+    } catch (err) {
+      console.warn('API getBlogs fallback to local storage:', err.message);
+    }
     return getStorageData(STORAGE_KEYS.BLOGS, initialCmsBlogs);
   },
 
   saveBlog: async (blogData) => {
-    const blogs = getStorageData(STORAGE_KEYS.BLOGS, initialCmsBlogs);
     const slug = blogData.slug?.trim() || blogData.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    let apiBlog = null;
 
+    try {
+      if (blogData.id && !String(blogData.id).startsWith('BLOG-')) {
+        const res = await adminApi.updateBlog(slug, { ...blogData, slug });
+        apiBlog = res.blog;
+      } else {
+        const res = await adminApi.createBlog({ ...blogData, slug });
+        apiBlog = res.blog;
+      }
+    } catch (err) {
+      console.warn('Live API saveBlog failed, falling back to local storage:', err.message);
+    }
+
+    const blogs = getStorageData(STORAGE_KEYS.BLOGS, initialCmsBlogs);
     let updated;
     if (blogData.id) {
-      // Update
-      updated = blogs.map((b) => (b.id === blogData.id ? { ...b, ...blogData, slug } : b));
+      updated = blogs.map((b) => (b.id === blogData.id || b.slug === slug ? { ...b, ...blogData, slug, ...(apiBlog || {}) } : b));
     } else {
-      // New
-      const newBlog = {
+      const newBlog = apiBlog || {
         ...blogData,
         id: `BLOG-${Date.now()}`,
         slug,
@@ -139,18 +164,35 @@ export const cmsService = {
     return updated;
   },
 
-  deleteBlog: async (id) => {
+  deleteBlog: async (idOrSlug) => {
+    try {
+      await adminApi.deleteBlog(idOrSlug);
+    } catch (err) {
+      console.warn('Live API deleteBlog failed:', err.message);
+    }
+
     const blogs = getStorageData(STORAGE_KEYS.BLOGS, initialCmsBlogs);
-    const updated = blogs.filter((b) => b.id !== id);
+    const updated = blogs.filter((b) => b.id !== idOrSlug && b.slug !== idOrSlug);
     setStorageData(STORAGE_KEYS.BLOGS, updated);
     return updated;
   },
 
-  toggleBlogPublish: async (id) => {
+  toggleBlogPublish: async (idOrSlug) => {
     const blogs = getStorageData(STORAGE_KEYS.BLOGS, initialCmsBlogs);
+    const target = blogs.find((b) => b.id === idOrSlug || b.slug === idOrSlug);
+    const newStatus = target?.status === 'Published' ? 'Draft' : 'Published';
+
+    if (target?.slug) {
+      try {
+        await adminApi.updateBlog(target.slug, { status: newStatus });
+      } catch (err) {
+        console.warn('Live API toggleBlogPublish failed:', err.message);
+      }
+    }
+
     const updated = blogs.map((b) => {
-      if (b.id === id) {
-        return { ...b, status: b.status === 'Published' ? 'Draft' : 'Published' };
+      if (b.id === idOrSlug || b.slug === idOrSlug) {
+        return { ...b, status: newStatus };
       }
       return b;
     });
@@ -158,7 +200,9 @@ export const cmsService = {
     return updated;
   },
 
-  // ─── STATIC PAGES CRUD ───
+  // ═══════════════════════════════════════════════════════════════
+  // STATIC PAGES CRUD
+  // ═══════════════════════════════════════════════════════════════
   getPages: async () => {
     return getStorageData(STORAGE_KEYS.PAGES, initialCmsPages);
   },
@@ -173,7 +217,9 @@ export const cmsService = {
     return updated;
   },
 
-  // ─── BACKUP & RESET ───
+  // ═══════════════════════════════════════════════════════════════
+  // BACKUP & RESET
+  // ═══════════════════════════════════════════════════════════════
   resetToDefaults: () => {
     setStorageData(STORAGE_KEYS.HERO_SLIDES, initialHeroSlides);
     setStorageData(STORAGE_KEYS.HOME_SECTIONS, initialHomeSections);

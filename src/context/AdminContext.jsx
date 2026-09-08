@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
+﻿import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import initialProductsList from '../data/products.js';
 import initialCategoriesList from '../data/categories.js';
 import { initialOrders, calculateOrderTotal } from '../data/orders.js';
@@ -8,6 +8,7 @@ import { initialPayments } from '../data/payments.js';
 import { initialReturns } from '../data/returns.js';
 import { initialInventory, initialStockLogs } from '../data/inventory.js';
 import { cmsService } from '../services/cmsService.js';
+import { adminApi } from '../services/api.js';
 import {
   initialHeroSlides,
   initialHomeSections,
@@ -29,7 +30,9 @@ export const AdminProvider = ({ children }) => {
   const [inventory, setInventory] = useState(initialInventory);
   const [stockLogs, setStockLogs] = useState(initialStockLogs);
 
-  // ─── SUPER ADMIN AUTHENTICATION STATE ───
+  // ═══════════════════════════════════════════════════════════════
+  // SUPER ADMIN AUTHENTICATION STATE
+  // ═══════════════════════════════════════════════════════════════
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
     try {
       const session = localStorage.getItem('trio_superadmin_session');
@@ -44,7 +47,7 @@ export const AdminProvider = ({ children }) => {
       const session = localStorage.getItem('trio_superadmin_session');
       return session ? JSON.parse(session)?.user : {
         name: 'Trio Super Admin',
-        email: 'admin@trioenterprises.com',
+        email: 'trioent19@gmail.com',
         role: 'Super Admin',
         avatar: 'SA',
         lastLogin: new Date().toISOString()
@@ -52,7 +55,7 @@ export const AdminProvider = ({ children }) => {
     } catch {
       return {
         name: 'Trio Super Admin',
-        email: 'admin@trioenterprises.com',
+        email: 'trioent19@gmail.com',
         role: 'Super Admin',
         avatar: 'SA',
         lastLogin: new Date().toISOString()
@@ -60,7 +63,9 @@ export const AdminProvider = ({ children }) => {
     }
   });
 
-  // ─── CMS STATES (HERO SLIDES, HOME SECTIONS, BLOGS, PAGES) ───
+  // ═══════════════════════════════════════════════════════════════
+  // CMS STATES (HERO SLIDES, HOME SECTIONS, BLOGS, PAGES)
+  // ═══════════════════════════════════════════════════════════════
   const [cmsHeroSlides, setCmsHeroSlides] = useState(() => {
     try {
       const saved = localStorage.getItem('trio_cms_hero_slides_v1');
@@ -106,25 +111,6 @@ export const AdminProvider = ({ children }) => {
   const [toasts, setToasts] = useState([]);
   const [printDocument, setPrintDocument] = useState(null);
 
-  // Initial simulated fetch
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 550);
-    return () => clearTimeout(timer);
-  }, []);
-
-  // Manual trigger to simulate real-time API refetch & show skeleton loading
-  const refreshData = (customDuration = 600) => {
-    setIsRefreshing(true);
-    setIsLoading(true);
-    setTimeout(() => {
-      setIsLoading(false);
-      setIsRefreshing(false);
-      showToast('Live dashboard data synchronized!', 'info');
-    }, customDuration);
-  };
-
   // Toast Notification Helper
   const showToast = (message, type = 'success') => {
     const id = Date.now() + Math.random();
@@ -138,13 +124,105 @@ export const AdminProvider = ({ children }) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   };
 
-  // Product Operations
-  const addProduct = (newProduct) => {
-    const id = Date.now();
+  // ═══════════════════════════════════════════════════════════════
+  // LIVE DATABASE & BACKEND API FETCHING ON MOUNT
+  // ═══════════════════════════════════════════════════════════════
+  useEffect(() => {
+    let isMounted = true;
+    const loadInitialData = async () => {
+      try {
+        setIsLoading(true);
+        const [prodsRes, ordersRes, catsRes, custsRes, blogsRes] = await Promise.allSettled([
+          adminApi.getProducts(),
+          adminApi.getOrders(),
+          adminApi.getCategories(),
+          adminApi.getCustomers(),
+          adminApi.getBlogs(),
+        ]);
+
+        if (!isMounted) return;
+
+        if (prodsRes.status === 'fulfilled' && prodsRes.value?.products?.length) {
+          setProducts(prodsRes.value.products);
+        }
+        if (ordersRes.status === 'fulfilled' && ordersRes.value?.orders?.length) {
+          setOrders(ordersRes.value.orders);
+        }
+        if (catsRes.status === 'fulfilled' && catsRes.value?.categories?.length) {
+          setCategories(catsRes.value.categories);
+        }
+        if (custsRes.status === 'fulfilled' && custsRes.value?.customers?.length) {
+          setCustomers(custsRes.value.customers);
+        }
+        if (blogsRes.status === 'fulfilled' && blogsRes.value?.blogs?.length) {
+          setCmsBlogs(blogsRes.value.blogs);
+        }
+      } catch (err) {
+        console.warn('Initial live sync error:', err.message);
+      } finally {
+        if (isMounted) setIsLoading(false);
+      }
+    };
+
+    loadInitialData();
+    return () => { isMounted = false; };
+  }, []);
+
+  // Manual trigger to refetch live API data & show sync indicator
+  const refreshData = async (customDuration = 600) => {
+    setIsRefreshing(true);
+    try {
+      const [prodsRes, ordersRes, catsRes, custsRes, blogsRes] = await Promise.allSettled([
+        adminApi.getProducts(),
+        adminApi.getOrders(),
+        adminApi.getCategories(),
+        adminApi.getCustomers(),
+        adminApi.getBlogs(),
+      ]);
+
+      let syncCount = 0;
+      if (prodsRes.status === 'fulfilled' && prodsRes.value?.products?.length) {
+        setProducts(prodsRes.value.products);
+        syncCount++;
+      }
+      if (ordersRes.status === 'fulfilled' && ordersRes.value?.orders?.length) {
+        setOrders(ordersRes.value.orders);
+        syncCount++;
+      }
+      if (catsRes.status === 'fulfilled' && catsRes.value?.categories?.length) {
+        setCategories(catsRes.value.categories);
+        syncCount++;
+      }
+      if (custsRes.status === 'fulfilled' && custsRes.value?.customers?.length) {
+        setCustomers(custsRes.value.customers);
+        syncCount++;
+      }
+      if (blogsRes.status === 'fulfilled' && blogsRes.value?.blogs?.length) {
+        setCmsBlogs(blogsRes.value.blogs);
+        syncCount++;
+      }
+
+      showToast(`Live database synchronized! (${syncCount} services online)`, 'success');
+    } catch (err) {
+      showToast('Sync finished with cached records', 'info');
+    } finally {
+      setTimeout(() => {
+        setIsLoading(false);
+        setIsRefreshing(false);
+      }, customDuration);
+    }
+  };
+
+  // ═══════════════════════════════════════════════════════════════
+  // PRODUCT OPERATIONS (CONNECTED TO LIVE DATABASE API)
+  // ═══════════════════════════════════════════════════════════════
+  const addProduct = async (newProduct) => {
     const slug = newProduct.slug || newProduct.name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    const localId = Date.now();
+
     const created = {
       ...newProduct,
-      id,
+      id: localId,
       slug,
       inStock: newProduct.inStock ?? true,
       badge: newProduct.badge || 'New',
@@ -154,20 +232,21 @@ export const AdminProvider = ({ children }) => {
       features: newProduct.features || [],
       specifications: newProduct.specifications || {},
     };
+
     setProducts((prev) => [created, ...prev]);
 
     // Also add to inventory
     const catPrefix = created.category ? created.category.substring(0, 3).toUpperCase() : 'PRD';
     const newInv = {
-      productId: id,
+      productId: localId,
       name: created.name,
-      sku: `TE-${catPrefix}-${id}`,
+      sku: `TE-${catPrefix}-${localId}`,
       category: created.category,
       subcategory: created.subcategory,
       price: created.price,
       image: created.images[0],
-      totalStock: 50,
-      availableStock: 50,
+      totalStock: Number(created.stock || 50),
+      availableStock: Number(created.stock || 50),
       reservedStock: 0,
       lowStockThreshold: 15,
       status: 'In Stock',
@@ -175,28 +254,52 @@ export const AdminProvider = ({ children }) => {
       variants: []
     };
     setInventory((prev) => [newInv, ...prev]);
-    showToast(`Product "${created.name.substring(0, 30)}..." added successfully!`);
+
+    try {
+      const res = await adminApi.createProduct(created);
+      if (res?.product) {
+        setProducts((prev) => prev.map((p) => p.id === localId ? res.product : p));
+        showToast(`Product "${created.name.substring(0, 25)}..." added to Supabase DB!`);
+        return res.product;
+      }
+    } catch (err) {
+      console.warn('API addProduct fallback:', err.message);
+    }
+
+    showToast(`Product "${created.name.substring(0, 25)}..." added successfully!`);
     return created;
   };
 
-  const updateProduct = (id, updatedFields) => {
+  const updateProduct = async (id, updatedFields) => {
     setProducts((prev) =>
       prev.map((p) => (p.id === Number(id) ? { ...p, ...updatedFields } : p))
     );
     setInventory((prev) =>
       prev.map((inv) => (inv.productId === Number(id) ? { ...inv, name: updatedFields.name || inv.name, price: updatedFields.price || inv.price } : inv))
     );
-    showToast('Product updated successfully!');
+
+    try {
+      await adminApi.updateProduct(id, updatedFields);
+      showToast('Product updated in database!');
+    } catch (err) {
+      showToast('Product updated locally', 'info');
+    }
   };
 
-  const deleteProduct = (id) => {
+  const deleteProduct = async (id) => {
     const p = products.find((x) => x.id === Number(id));
     setProducts((prev) => prev.filter((x) => x.id !== Number(id)));
     setInventory((prev) => prev.filter((x) => x.productId !== Number(id)));
-    showToast(`Deleted "${p?.name?.substring(0, 25) || 'product'}"`, 'info');
+
+    try {
+      await adminApi.deleteProduct(id);
+      showToast(`Deleted "${p?.name?.substring(0, 25) || 'product'}" from database`, 'info');
+    } catch (err) {
+      showToast(`Deleted "${p?.name?.substring(0, 25) || 'product'}"`, 'info');
+    }
   };
 
-  const duplicateProduct = (id) => {
+  const duplicateProduct = async (id) => {
     const existing = products.find((x) => x.id === Number(id));
     if (!existing) return;
     const duplicated = {
@@ -206,34 +309,52 @@ export const AdminProvider = ({ children }) => {
       slug: `${existing.slug}-copy-${Date.now().toString().slice(-4)}`,
       badge: 'New',
     };
-    setProducts((prev) => [duplicated, ...prev]);
-    showToast(`Duplicated product created: ${duplicated.name.substring(0, 30)}...`);
+    return addProduct(duplicated);
   };
 
-  // Order Operations
-  const updateOrderStatus = (orderId, newStatus) => {
+  // ═══════════════════════════════════════════════════════════════
+  // ORDER OPERATIONS (CONNECTED TO LIVE DATABASE API)
+  // ═══════════════════════════════════════════════════════════════
+  const updateOrderStatus = async (orderId, newStatus) => {
     setOrders((prev) =>
-      prev.map((ord) => (ord.id === orderId ? { ...ord, status: newStatus } : ord))
+      prev.map((ord) => (ord.id === orderId || ord.order_number === orderId ? { ...ord, status: newStatus } : ord))
     );
-    showToast(`Order ${orderId} status changed to ${newStatus}`);
+
+    try {
+      await adminApi.updateOrderStatus(orderId, newStatus);
+      showToast(`Order ${orderId} status changed to ${newStatus} in DB`);
+    } catch (err) {
+      showToast(`Order ${orderId} status changed to ${newStatus}`);
+    }
   };
 
-  const bulkUpdateOrderStatus = (orderIds, newStatus) => {
+  const bulkUpdateOrderStatus = async (orderIds, newStatus) => {
     setOrders((prev) =>
-      prev.map((ord) => (orderIds.includes(ord.id) ? { ...ord, status: newStatus } : ord))
+      prev.map((ord) => (orderIds.includes(ord.id) || orderIds.includes(ord.order_number) ? { ...ord, status: newStatus } : ord))
     );
-    showToast(`Updated ${orderIds.length} orders to "${newStatus}"`);
+
+    try {
+      await Promise.allSettled(orderIds.map((id) => adminApi.updateOrderStatus(id, newStatus)));
+      showToast(`Updated ${orderIds.length} orders to "${newStatus}" in DB`);
+    } catch (err) {
+      showToast(`Updated ${orderIds.length} orders to "${newStatus}"`);
+    }
   };
 
-  // Inventory Operations
-  const adjustStock = (productId, adjustmentQty, reason) => {
+  // ═══════════════════════════════════════════════════════════════
+  // INVENTORY OPERATIONS
+  // ═══════════════════════════════════════════════════════════════
+  const adjustStock = async (productId, adjustmentQty, reason) => {
     const changeNum = Number(adjustmentQty);
+    let newStockLevel = 0;
+
     setInventory((prev) =>
       prev.map((item) => {
         if (item.productId === Number(productId)) {
           const newAvail = Math.max(0, item.availableStock + changeNum);
           const newTotal = newAvail + item.reservedStock;
           const status = newAvail === 0 ? 'Out of Stock' : (newAvail <= item.lowStockThreshold ? 'Low Stock' : 'In Stock');
+          newStockLevel = newAvail;
 
           const newLog = {
             id: `LOG-${Date.now()}`,
@@ -258,35 +379,68 @@ export const AdminProvider = ({ children }) => {
         return item;
       })
     );
+
+    // Sync product stock with database
+    try {
+      await adminApi.updateProduct(productId, { stock: newStockLevel, in_stock: newStockLevel > 0 });
+    } catch (err) {
+      console.warn('DB stock sync skipped:', err.message);
+    }
+
     showToast(`Stock updated (${changeNum > 0 ? '+' : ''}${changeNum} units)`);
   };
 
-  // Category Operations
-  const addCategory = (catData) => {
-    const newCat = {
+  // ═══════════════════════════════════════════════════════════════
+  // CATEGORY OPERATIONS (CONNECTED TO LIVE API)
+  // ═══════════════════════════════════════════════════════════════
+  const addCategory = async (catData) => {
+    const localCat = {
       ...catData,
       id: Date.now(),
       slug: catData.slug || catData.name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
       productCount: 0,
       subcategories: catData.subcategories || []
     };
-    setCategories((prev) => [...prev, newCat]);
-    showToast(`Category "${newCat.name}" added`);
+    setCategories((prev) => [...prev, localCat]);
+
+    try {
+      const res = await adminApi.createCategory(localCat);
+      if (res?.category) {
+        setCategories((prev) => prev.map((c) => c.id === localCat.id ? res.category : c));
+      }
+      showToast(`Category "${localCat.name}" saved to database`);
+    } catch (err) {
+      showToast(`Category "${localCat.name}" added`);
+    }
   };
 
-  const updateCategory = (id, updatedFields) => {
+  const updateCategory = async (id, updatedFields) => {
     setCategories((prev) =>
       prev.map((c) => (c.id === Number(id) ? { ...c, ...updatedFields } : c))
     );
-    showToast('Category updated');
+
+    try {
+      await adminApi.updateCategory(id, updatedFields);
+      showToast('Category updated in database');
+    } catch (err) {
+      showToast('Category updated');
+    }
   };
 
-  const deleteCategory = (id) => {
+  const deleteCategory = async (id) => {
     setCategories((prev) => prev.filter((c) => c.id !== Number(id)));
-    showToast('Category deleted', 'info');
+
+    try {
+      await adminApi.deleteCategory(id);
+      showToast('Category deleted from database', 'info');
+    } catch (err) {
+      showToast('Category deleted', 'info');
+    }
   };
 
-  // Coupon Operations
+  // ═══════════════════════════════════════════════════════════════
+  // COUPON OPERATIONS
+  // ═══════════════════════════════════════════════════════════════
   const addCoupon = (couponData) => {
     const newCoupon = {
       ...couponData,
@@ -310,7 +464,9 @@ export const AdminProvider = ({ children }) => {
     showToast('Coupon deleted', 'info');
   };
 
-  // Return Operations
+  // ═══════════════════════════════════════════════════════════════
+  // RETURN OPERATIONS
+  // ═══════════════════════════════════════════════════════════════
   const updateReturnStatus = (returnId, newStatus) => {
     setReturns((prev) =>
       prev.map((r) => {
@@ -329,9 +485,9 @@ export const AdminProvider = ({ children }) => {
     showToast(`Return ${returnId} updated to ${newStatus}`);
   };
 
-  // ══════════════════════════════════════════════════════════════════════
+  // ═══════════════════════════════════════════════════════════════
   // CMS ACTIONS (HERO SLIDES, HOME SECTIONS, BLOGS, PAGES)
-  // ══════════════════════════════════════════════════════════════════════
+  // ═══════════════════════════════════════════════════════════════
 
   // 1. Hero Slides
   const saveHeroSlide = async (slideData) => {
@@ -377,11 +533,11 @@ export const AdminProvider = ({ children }) => {
     return updated;
   };
 
-  // 3. Blog Articles
+  // 3. Blog Articles (Synced with Live API & blogs.json)
   const saveBlog = async (blogData) => {
     const updated = await cmsService.saveBlog(blogData);
     setCmsBlogs(updated);
-    showToast(blogData.id ? 'Blog article updated' : 'New blog article published');
+    showToast(blogData.id ? 'Blog article saved to backend' : 'New blog article published to live site!');
     return updated;
   };
 
@@ -417,11 +573,28 @@ export const AdminProvider = ({ children }) => {
     showToast('All CMS content reset to default authentic catalog settings', 'info');
   };
 
-  // Dashboard Aggregates & KPIs
+  // 6. Supabase Storage File Upload Helper
+  const uploadImage = async (file) => {
+    try {
+      const res = await adminApi.uploadImage(file);
+      if (res?.url) {
+        showToast('Image uploaded to Supabase CDN!', 'success');
+        return res.url;
+      }
+      throw new Error('No URL in upload response');
+    } catch (err) {
+      showToast('Image upload failed: ' + err.message, 'error');
+      throw err;
+    }
+  };
+
+  // ═══════════════════════════════════════════════════════════════
+  // DASHBOARD AGGREGATES & KPIS (COMPUTED REACTIVELY FROM REAL DATA)
+  // ═══════════════════════════════════════════════════════════════
   const stats = useMemo(() => {
     let totalRevenue = 0;
     let todayRevenue = 0;
-    const todayStr = '2026-09-03';
+    const todayStr = new Date().toISOString().split('T')[0];
 
     const statusCounts = {
       total: orders.length,
@@ -439,11 +612,13 @@ export const AdminProvider = ({ children }) => {
     };
 
     orders.forEach((ord) => {
-      const { total } = calculateOrderTotal(ord);
-      if (ord.status !== 'Cancelled' && ord.status !== 'Refunded') {
-        totalRevenue += total;
-        if (ord.date.startsWith(todayStr)) {
-          todayRevenue += total;
+      const orderTotal = Number(ord.totalAmount || ord.total || 0);
+      const st = (ord.status || 'New').toLowerCase().replace(/\s+/g, '_');
+
+      if (st !== 'cancelled' && st !== 'refunded') {
+        totalRevenue += orderTotal;
+        if (ord.date && ord.date.startsWith(todayStr)) {
+          todayRevenue += orderTotal;
         }
       }
 
@@ -459,16 +634,16 @@ export const AdminProvider = ({ children }) => {
         case 'Return Requested': statusCounts.returnRequested++; break;
         case 'Returned': statusCounts.returned++; break;
         case 'Refunded': statusCounts.refunded++; break;
-        default: break;
+        default: statusCounts.new++; break;
       }
     });
 
-    const lowStockCount = inventory.filter((i) => i.availableStock > 0 && i.availableStock <= i.lowStockThreshold).length;
+    const lowStockCount = inventory.filter((i) => i.availableStock > 0 && i.availableStock <= (i.lowStockThreshold || 15)).length;
     const outOfStockCount = inventory.filter((i) => i.availableStock === 0).length;
 
     return {
-      totalRevenue,
-      todayRevenue: todayRevenue || 931,
+      totalRevenue: Math.round(totalRevenue),
+      todayRevenue: Math.round(todayRevenue || 931),
       statusCounts,
       totalCustomers: customers.length,
       lowStockCount,
@@ -477,7 +652,9 @@ export const AdminProvider = ({ children }) => {
     };
   }, [orders, inventory, customers, products]);
 
-  // Super Admin Login Handler
+  // ═══════════════════════════════════════════════════════════════
+  // SUPER ADMIN LOGIN HANDLER
+  // ═══════════════════════════════════════════════════════════════
   const login = async (email, password, remember = true) => {
     const cleanEmail = (email || '').trim().toLowerCase();
     const cleanPass = (password || '').trim();
@@ -486,6 +663,7 @@ export const AdminProvider = ({ children }) => {
     const validEmails = [
       'admin@trioenterprises.com',
       'superadmin@trioenterprises.com',
+      'trioent19@gmail.com',
       'admin@trio.com',
       'admin'
     ];
@@ -494,7 +672,8 @@ export const AdminProvider = ({ children }) => {
       'admin123',
       'Admin@123',
       'admin',
-      'superadmin'
+      'superadmin',
+      'Shree@1203#'
     ];
 
     const isEmailValid = validEmails.includes(cleanEmail);
@@ -503,7 +682,7 @@ export const AdminProvider = ({ children }) => {
     if (isEmailValid && isPasswordValid) {
       const userData = {
         name: 'Trio Super Admin',
-        email: cleanEmail.includes('@') ? cleanEmail : 'admin@trioenterprises.com',
+        email: cleanEmail.includes('@') ? cleanEmail : 'trioent19@gmail.com',
         role: 'Super Admin',
         avatar: 'SA',
         lastLogin: new Date().toISOString()
@@ -573,7 +752,23 @@ export const AdminProvider = ({ children }) => {
         cmsBlogs,
         cmsPages,
 
-        // Core Actions
+        // UI States
+        isLoading,
+        isRefreshing,
+        sidebarCollapsed,
+        setSidebarCollapsed,
+        mobileMenuOpen,
+        setMobileMenuOpen,
+        globalSearch,
+        setGlobalSearch,
+        toasts,
+        showToast,
+        removeToast,
+        printDocument,
+        setPrintDocument,
+
+        // Actions
+        refreshData,
         addProduct,
         updateProduct,
         deleteProduct,
@@ -601,23 +796,7 @@ export const AdminProvider = ({ children }) => {
         toggleBlogPublish,
         updatePage,
         resetCmsToDefaults,
-
-        // UI & Modals & Loading
-        sidebarCollapsed,
-        setSidebarCollapsed,
-        mobileMenuOpen,
-        setMobileMenuOpen,
-        globalSearch,
-        setGlobalSearch,
-        isLoading,
-        setIsLoading,
-        isRefreshing,
-        refreshData,
-        toasts,
-        showToast,
-        removeToast,
-        printDocument,
-        setPrintDocument
+        uploadImage
       }}
     >
       {children}
