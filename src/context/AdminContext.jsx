@@ -1,12 +1,8 @@
 ﻿import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import initialProductsList from '../data/products.js';
 import initialCategoriesList from '../data/categories.js';
-import { initialOrders, calculateOrderTotal } from '../data/orders.js';
-import { initialCustomers } from '../data/customers.js';
+import { calculateOrderTotal } from '../data/orders.js';
 import { initialCoupons } from '../data/coupons.js';
-import { initialPayments } from '../data/payments.js';
-import { initialReturns } from '../data/returns.js';
-import { initialInventory, initialStockLogs } from '../data/inventory.js';
 import { cmsService } from '../services/cmsService.js';
 import { adminApi } from '../services/api.js';
 import {
@@ -22,13 +18,10 @@ export const AdminProvider = ({ children }) => {
   // Core Entities State
   const [products, setProducts] = useState(initialProductsList);
   const [categories, setCategories] = useState(initialCategoriesList);
-  const [orders, setOrders] = useState(initialOrders);
-  const [customers, setCustomers] = useState(initialCustomers);
+  const [orders, setOrders] = useState([]);
+  const [customers, setCustomers] = useState([]);
   const [coupons, setCoupons] = useState(initialCoupons);
-  const [payments, setPayments] = useState(initialPayments);
-  const [returns, setReturns] = useState(initialReturns);
-  const [inventory, setInventory] = useState(initialInventory);
-  const [stockLogs, setStockLogs] = useState(initialStockLogs);
+  const [stockLogs, setStockLogs] = useState([]);
 
   // ═══════════════════════════════════════════════════════════════
   // SUPER ADMIN AUTHENTICATION STATE
@@ -142,19 +135,19 @@ export const AdminProvider = ({ children }) => {
 
         if (!isMounted) return;
 
-        if (prodsRes.status === 'fulfilled' && prodsRes.value?.products?.length) {
+        if (prodsRes.status === 'fulfilled' && Array.isArray(prodsRes.value?.products)) {
           setProducts(prodsRes.value.products);
         }
-        if (ordersRes.status === 'fulfilled' && ordersRes.value?.orders?.length) {
+        if (ordersRes.status === 'fulfilled' && Array.isArray(ordersRes.value?.orders)) {
           setOrders(ordersRes.value.orders);
         }
-        if (catsRes.status === 'fulfilled' && catsRes.value?.categories?.length) {
+        if (catsRes.status === 'fulfilled' && Array.isArray(catsRes.value?.categories)) {
           setCategories(catsRes.value.categories);
         }
-        if (custsRes.status === 'fulfilled' && custsRes.value?.customers?.length) {
+        if (custsRes.status === 'fulfilled' && Array.isArray(custsRes.value?.customers)) {
           setCustomers(custsRes.value.customers);
         }
-        if (blogsRes.status === 'fulfilled' && blogsRes.value?.blogs?.length) {
+        if (blogsRes.status === 'fulfilled' && Array.isArray(blogsRes.value?.blogs)) {
           setCmsBlogs(blogsRes.value.blogs);
         }
       } catch (err) {
@@ -181,23 +174,23 @@ export const AdminProvider = ({ children }) => {
       ]);
 
       let syncCount = 0;
-      if (prodsRes.status === 'fulfilled' && prodsRes.value?.products?.length) {
+      if (prodsRes.status === 'fulfilled' && Array.isArray(prodsRes.value?.products)) {
         setProducts(prodsRes.value.products);
         syncCount++;
       }
-      if (ordersRes.status === 'fulfilled' && ordersRes.value?.orders?.length) {
+      if (ordersRes.status === 'fulfilled' && Array.isArray(ordersRes.value?.orders)) {
         setOrders(ordersRes.value.orders);
         syncCount++;
       }
-      if (catsRes.status === 'fulfilled' && catsRes.value?.categories?.length) {
+      if (catsRes.status === 'fulfilled' && Array.isArray(catsRes.value?.categories)) {
         setCategories(catsRes.value.categories);
         syncCount++;
       }
-      if (custsRes.status === 'fulfilled' && custsRes.value?.customers?.length) {
+      if (custsRes.status === 'fulfilled' && Array.isArray(custsRes.value?.customers)) {
         setCustomers(custsRes.value.customers);
         syncCount++;
       }
-      if (blogsRes.status === 'fulfilled' && blogsRes.value?.blogs?.length) {
+      if (blogsRes.status === 'fulfilled' && Array.isArray(blogsRes.value?.blogs)) {
         setCmsBlogs(blogsRes.value.blogs);
         syncCount++;
       }
