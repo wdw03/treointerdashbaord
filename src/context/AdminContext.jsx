@@ -211,7 +211,13 @@ export const AdminProvider = ({ children }) => {
           setCategories(catsRes.value.categories);
         }
         if (custsRes.status === 'fulfilled' && Array.isArray(custsRes.value?.customers)) {
-          setCustomers(custsRes.value.customers);
+          setCustomers(custsRes.value.customers.map(c => ({
+            ...c,
+            tags: Array.isArray(c?.tags) ? c.tags : ['Artisan Patron'],
+            totalOrders: Number(c?.totalOrders ?? c?.ordersCount ?? 0),
+            totalSpent: Number(c?.totalSpent || 0),
+            avatar: c?.avatar || (c?.name ? c.name.slice(0, 2).toUpperCase() : 'AP'),
+          })));
         }
         if (blogsRes.status === 'fulfilled' && Array.isArray(blogsRes.value?.blogs)) {
           setCmsBlogs(blogsRes.value.blogs);

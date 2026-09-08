@@ -24,28 +24,62 @@ export const Customers = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCustomer, setSelectedCustomer] = useState(null); // profile drawer/modal
 
+  const normalizedCustomers = useMemo(() => {
+    return (customers || []).map((c) => {
+      const name = c?.name || c?.full_name || 'Customer';
+      const totalSpent = Number(c?.totalSpent || 0);
+      const totalOrders = Number(c?.totalOrders ?? c?.ordersCount ?? 0);
+      const tags = Array.isArray(c?.tags)
+        ? c.tags
+        : (totalSpent > 5000 || totalOrders >= 3 ? ['VIP', 'Artisan Patron'] : ['Artisan Patron']);
+
+      return {
+        ...c,
+        id: c?.id || Math.random().toString(36).substr(2, 9),
+        name,
+        email: c?.email || '',
+        phone: c?.phone || 'Not provided',
+        city: c?.city || 'Jaipur',
+        state: c?.state || 'Rajasthan',
+        tags,
+        totalOrders,
+        totalSpent,
+        avatar: c?.avatar || name.slice(0, 2).toUpperCase(),
+        joinedDate: c?.joinedDate || 'Recent',
+        addresses: Array.isArray(c?.addresses) ? c.addresses : [],
+      };
+    });
+  }, [customers]);
+
   const filteredCustomers = useMemo(() => {
-    return customers.filter((c) => {
-      if (activeTab === 'VIP' && !c.tags.includes('VIP') && !c.tags.includes('High Value')) return false;
+    return normalizedCustomers.filter((c) => {
+      const tags = c.tags || [];
+      if (activeTab === 'VIP' && !tags.includes('VIP') && !tags.includes('High Value')) return false;
       if (activeTab === 'New' && c.totalOrders > 3) return false;
 
       if (searchTerm.trim()) {
         const q = searchTerm.toLowerCase();
         return (
-          c.name.toLowerCase().includes(q) ||
-          c.email.toLowerCase().includes(q) ||
-          c.phone.includes(q) ||
-          c.city.toLowerCase().includes(q)
+          (c.name || '').toLowerCase().includes(q) ||
+          (c.email || '').toLowerCase().includes(q) ||
+          String(c.phone || '').toLowerCase().includes(q) ||
+          (c.city || '').toLowerCase().includes(q)
         );
       }
       return true;
     });
-  }, [customers, activeTab, searchTerm]);
+  }, [normalizedCustomers, activeTab, searchTerm]);
 
   // Find order history for selected customer
   const customerOrders = useMemo(() => {
     if (!selectedCustomer) return [];
-    return orders.filter((o) => o.customer.email === selectedCustomer.email || o.customer.name === selectedCustomer.name);
+    const selEmail = (selectedCustomer.email || '').toLowerCase();
+    const selName = (selectedCustomer.name || '').toLowerCase();
+    return (orders || []).filter((o) => {
+      const ordEmail = (o?.customer?.email || o?.customer_email || o?.shipping_address?.email || '').toLowerCase();
+      const ordName = (o?.customer?.name || o?.customer_name || o?.shipping_address?.name || '').toLowerCase();
+      return (selEmail && ordEmail === selEmail) || (selName && ordName === selName);
+    });
   }, [selectedCustomer, orders]);
 
   return (
@@ -77,7 +111,7 @@ export const Customers = () => {
                 {isPageLoading ? (
                   <span className="w-2.5 h-2.5 rounded-full bg-slate-500/50 animate-pulse inline-block" />
                 ) : (
-                  tab === 'All' ? customers.length : (tab === 'VIP' ? customers.filter(c => c.tags.includes('VIP') || c.tags.includes('High Value')).length : customers.filter(c => c.totalOrders <= 3).length)
+                  tab === 'All' ? normalizedCustomers.length : (tab === 'VIP' ? normalizedCustomers.filter(c => (c.tags || []).includes('VIP') || (c.tags || []).includes('High Value')).length : normalizedCustomers.filter(c => c.totalOrders <= 3).length)
                 )}
               </span>
             </button>
@@ -156,13 +190,13 @@ export const Customers = () => {
 
                   {/* Total Spent */}
                   <td className="table-td text-right font-black text-sm text-emerald-400">
-                    ₹{c.totalSpent.toLocaleString()}
+                    ₹{Number(c.totalSpent || 0).toLocaleString('en-IN')}
                   </td>
 
                   {/* Tags */}
                   <td className="table-td">
                     <div className="flex flex-wrap gap-1">
-                      {c.tags.map((t, idx) => (
+                      {(c.tags || []).map((t, idx) => (
                         <span key={idx} className="bg-slate-800 text-slate-300 text-[10px] px-2 py-0.5 rounded font-medium border border-slate-700">
                           {t}
                         </span>
@@ -191,7 +225,7 @@ export const Customers = () => {
           </table>
         </div>
         <div className="p-3.5 border-t border-slate-800/80 text-xs text-slate-400 flex justify-between items-center shrink-0 bg-slate-900/90">
-          <span>{isPageLoading ? <Skeleton className="h-3.5 w-36 inline-block align-middle" /> : `Showing ${filteredCustomers.length} of ${customers.length} registered customers`}</span>
+          <span>{isPageLoading ? <Skeleton className="h-3.5 w-36 inline-block align-middle" /> : `Showing ${filteredCustomers.length} of ${normalizedCustomers.length} registered customers`}</span>
           <span className="text-[11px] text-slate-500">Click View Profile to see complete order history</span>
         </div>
       </div>
@@ -219,7 +253,7 @@ export const Customers = () => {
             <div className="grid grid-cols-3 gap-3 text-center">
               <div className="p-3 bg-slate-950 rounded-xl border border-slate-800">
                 <span className="text-[11px] text-slate-400 block">Total Lifetime Spend</span>
-                <span className="text-base font-bold text-emerald-400">₹{selectedCustomer.totalSpent.toLocaleString()}</span>
+                <span className="text-base font-bold text-emerald-400">₹{Number(selectedCustomer.totalSpent || 0).toLocaleString('en-IN')}</span>
               </div>
               <div className="p-3 bg-slate-950 rounded-xl border border-slate-800">
                 <span className="text-[11px] text-slate-400 block">Completed Orders</span>
@@ -227,7 +261,7 @@ export const Customers = () => {
               </div>
               <div className="p-3 bg-slate-950 rounded-xl border border-slate-800">
                 <span className="text-[11px] text-slate-400 block">Average Order Value</span>
-                <span className="text-base font-bold text-white">₹{Math.round(selectedCustomer.totalSpent / selectedCustomer.totalOrders)}</span>
+                <span className="text-base font-bold text-white">₹{Math.round(Number(selectedCustomer.totalSpent || 0) / Math.max(1, Number(selectedCustomer.totalOrders || 1)))}</span>
               </div>
             </div>
 
