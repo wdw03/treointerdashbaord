@@ -1,6 +1,7 @@
 ﻿// Centralized API Client for Trio Ecart Admin Dashboard
 // Direct live production backend fallback for Vercel deployments
 const LIVE_BACKEND_URL = 'https://treobackend.vercel.app';
+const TRIOTECH_FALLBACK = 'https://trieotech.vercel.app/api';
 const RAW_URL = (import.meta.env.VITE_API_URL && import.meta.env.VITE_API_URL !== '')
   ? import.meta.env.VITE_API_URL 
   : LIVE_BACKEND_URL;
@@ -39,6 +40,12 @@ async function request(endpoint, options = {}) {
     return await res.json();
   } catch (err) {
     console.warn(`[API] Request failed for ${endpoint}:`, err.message);
+    // Fallback to trieotech.vercel.app if primary backend fails
+    try {
+      const fallbackUrl = `${TRIOTECH_FALLBACK}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
+      const fbRes = await fetch(fallbackUrl, { ...options, headers });
+      if (fbRes.ok) return await fbRes.json();
+    } catch (_) {}
     throw err;
   }
 }
@@ -150,6 +157,31 @@ export const adminApi = {
     return request('/admin/upload', {
       method: 'POST',
       body: formData,
+    });
+  },
+
+  // COD Serviceable Pincodes Management
+  getCodPincodes: async () => {
+    return request('/admin/cod-pincodes');
+  },
+
+  addCodPincodes: async (data) => {
+    return request('/admin/cod-pincodes', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  deleteCodPincode: async (pincode) => {
+    return request(`/admin/cod-pincodes?pincode=${encodeURIComponent(pincode)}`, {
+      method: 'DELETE',
+    });
+  },
+
+  toggleGlobalCod: async (enabled) => {
+    return request('/admin/cod-pincodes', {
+      method: 'PATCH',
+      body: JSON.stringify({ cod_enabled_globally: enabled }),
     });
   },
 };
