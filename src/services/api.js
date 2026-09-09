@@ -184,4 +184,29 @@ export const adminApi = {
       body: JSON.stringify({ cod_enabled_globally: enabled }),
     });
   },
+
+  // Coupons Management
+  getCoupons: async () => {
+    return request('/admin/coupons');
+  },
+
+  createCoupon: async (couponData) => {
+    return request('/admin/coupons', {
+      method: 'POST',
+      body: JSON.stringify(couponData),
+    });
+  },
+
+  deleteCoupon: async (id) => {
+    return request('/admin/coupons/' + id, {
+      method: 'DELETE',
+    });
+  },
+
+  toggleCouponStatus: async (id) => {
+    return request('/admin/coupons/' + id, {
+      method: 'PATCH',
+      body: JSON.stringify({ toggleStatus: true }),
+    });
+  },
 };

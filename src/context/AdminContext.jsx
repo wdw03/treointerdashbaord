@@ -148,12 +148,13 @@ export const AdminProvider = ({ children }) => {
     const loadInitialData = async () => {
       try {
         setIsLoading(true);
-        const [prodsRes, ordersRes, catsRes, custsRes, blogsRes] = await Promise.allSettled([
+        const [prodsRes, ordersRes, catsRes, custsRes, blogsRes, couponsRes] = await Promise.allSettled([
           adminApi.getProducts(),
           adminApi.getOrders(),
           adminApi.getCategories(),
           adminApi.getCustomers(),
           adminApi.getBlogs(),
+          adminApi.getCoupons(),
         ]);
 
         if (!isMounted) return;
@@ -237,13 +238,14 @@ export const AdminProvider = ({ children }) => {
   const refreshData = async (customDuration = 600) => {
     setIsRefreshing(true);
     try {
-      const [prodsRes, ordersRes, catsRes, custsRes, blogsRes] = await Promise.allSettled([
-        adminApi.getProducts(),
-        adminApi.getOrders(),
-        adminApi.getCategories(),
-        adminApi.getCustomers(),
-        adminApi.getBlogs(),
-      ]);
+      const [prodsRes, ordersRes, catsRes, custsRes, blogsRes, couponsRes] = await Promise.allSettled([
+          adminApi.getProducts(),
+          adminApi.getOrders(),
+          adminApi.getCategories(),
+          adminApi.getCustomers(),
+          adminApi.getBlogs(),
+          adminApi.getCoupons(),
+        ]);
 
       let syncCount = 0;
       if (prodsRes.status === 'fulfilled' && Array.isArray(prodsRes.value?.products)) {
@@ -504,29 +506,78 @@ export const AdminProvider = ({ children }) => {
   };
 
   // ═══════════════════════════════════════════════════════════════
-  // COUPON OPERATIONS
+  // COUPON OPERATIONS (Connected to live Supabase via adminApi)
   // ═══════════════════════════════════════════════════════════════
-  const addCoupon = (couponData) => {
-    const newCoupon = {
-      ...couponData,
-      id: `CPN-${Date.now()}`,
-      usedCount: 0,
-      status: 'Active'
-    };
-    setCoupons((prev) => [newCoupon, ...prev]);
-    showToast(`Coupon ${newCoupon.code} created`);
+  const addCoupon = async (couponData) => {
+    try {
+      const res = await adminApi.createCoupon({
+        code: couponData.code,
+        discount_type: couponData.type?.toLowerCase() === 'flat' ? 'flat' : 'percentage',
+        value: Number(couponData.value) || 0,
+        min_spend: Number(couponData.minOrderValue) || 0,
+        max_discount: Number(couponData.maxDiscount) || null,
+        max_uses: Number(couponData.maxUses) || 500,
+        expires_at: couponData.expiresAt || couponData.endDate || null,
+        description: couponData.description || '',
+        applicable_product_ids: couponData.applicableProductIds || [],
+        applicable_product_names: couponData.applicableProductNames || []
+      });
+
+      if (res?.success && res.coupon) {
+        const c = res.coupon;
+        const formatted = {
+          id: c.id,
+          code: c.code,
+          type: c.discountType === 'percentage' ? 'Percentage' : 'Flat',
+          value: c.value,
+          minOrderValue: c.minSpend,
+          maxDiscount: c.maxDiscount,
+          applicableCategory: c.applicableCategory || 'All',
+          applicableProductIds: c.applicableProductIds || [],
+          applicableProductNames: c.applicableProductNames || [],
+          description: c.description,
+          expiresAt: c.expiresAt,
+          isExpired: c.isExpired,
+          maxUses: c.maxUses || 500,
+          usedCount: c.usedCount || 0,
+          status: c.isActive && !c.isExpired ? 'Active' : 'Inactive',
+        };
+        setCoupons((prev) => [formatted, ...prev]);
+        showToast(`Coupon ${formatted.code} created successfully!`);
+        return { success: true, coupon: formatted };
+      }
+      return { success: false, error: 'Failed to create coupon' };
+    } catch (err) {
+      console.error('Failed to create coupon on backend:', err);
+      showToast(err.message || 'Failed to create coupon', 'error');
+      return { success: false, error: err.message };
+    }
   };
 
-  const toggleCouponStatus = (id) => {
-    setCoupons((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, status: c.status === 'Active' ? 'Inactive' : 'Active' } : c))
-    );
-    showToast('Coupon status updated');
+  const toggleCouponStatus = async (id) => {
+    try {
+      await adminApi.toggleCouponStatus(id);
+      setCoupons((prev) =>
+        prev.map((c) => (c.id === id ? { ...c, status: c.status === 'Active' ? 'Inactive' : 'Active' } : c))
+      );
+      showToast('Coupon status updated');
+    } catch (err) {
+      console.error('Failed to toggle coupon status:', err);
+      showToast(err.message || 'Failed to update coupon status', 'error');
+    }
   };
 
-  const deleteCoupon = (id) => {
-    setCoupons((prev) => prev.filter((c) => c.id !== id));
-    showToast('Coupon deleted', 'info');
+  const deleteCoupon = async (id) => {
+    try {
+      await adminApi.deleteCoupon(id);
+      setCoupons((prev) => prev.filter((c) => c.id !== id));
+      showToast('Coupon deleted successfully', 'info');
+      return { success: true };
+    } catch (err) {
+      console.error('Failed to delete coupon on backend:', err);
+      showToast(err.message || 'Failed to delete coupon', 'error');
+      return { success: false, error: err.message };
+    }
   };
 
   // ═══════════════════════════════════════════════════════════════
