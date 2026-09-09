@@ -12,6 +12,28 @@ import {
   initialCmsPages
 } from '../data/initialCmsData.js';
 
+
+export const formatDashboardCoupon = (c) => ({
+  id: c.id,
+  code: c.code,
+  type: c.discountType === 'percentage' || c.type === 'Percentage' ? 'Percentage' : 'Flat',
+  discountType: c.discountType || (c.type === 'Percentage' ? 'percentage' : 'flat'),
+  value: Number(c.value) || 0,
+  minSpend: Number(c.minSpend || c.minOrderValue || 0),
+  minOrderValue: Number(c.minSpend || c.minOrderValue || 0),
+  maxDiscount: c.maxDiscount ? Number(c.maxDiscount) : null,
+  applicableCategory: c.applicableCategory || 'All',
+  applicableProductIds: c.applicableProductIds || [],
+  applicableProductNames: c.applicableProductNames || [],
+  description: c.description || '',
+  expiresAt: c.expiresAt || null,
+  isExpired: Boolean(c.isExpired),
+  maxUses: c.maxUses || 500,
+  usedCount: c.usedCount || 0,
+  status: c.isActive && !c.isExpired ? 'Active' : (c.status === 'Active' ? 'Active' : 'Inactive'),
+  isActive: Boolean(c.isActive ?? c.status === 'Active'),
+});
+
 const AdminContext = createContext();
 
 export const AdminProvider = ({ children }) => {
@@ -20,7 +42,7 @@ export const AdminProvider = ({ children }) => {
   const [categories, setCategories] = useState(initialCategoriesList);
   const [orders, setOrders] = useState([]);
   const [customers, setCustomers] = useState([]);
-  const [coupons, setCoupons] = useState(initialCoupons);
+  const [coupons, setCoupons] = useState([]);
   const [inventory, setInventory] = useState(() => {
     return initialProductsList.map((p) => ({
       productId: p.id,
@@ -223,6 +245,9 @@ export const AdminProvider = ({ children }) => {
         if (blogsRes.status === 'fulfilled' && Array.isArray(blogsRes.value?.blogs)) {
           setCmsBlogs(blogsRes.value.blogs);
         }
+        if (couponsRes.status === 'fulfilled' && Array.isArray(couponsRes.value?.coupons)) {
+          setCoupons(couponsRes.value.coupons.map(formatDashboardCoupon));
+        }
       } catch (err) {
         console.warn('Initial live sync error:', err.message);
       } finally {
@@ -266,6 +291,10 @@ export const AdminProvider = ({ children }) => {
       }
       if (blogsRes.status === 'fulfilled' && Array.isArray(blogsRes.value?.blogs)) {
         setCmsBlogs(blogsRes.value.blogs);
+        syncCount++;
+      }
+      if (couponsRes.status === 'fulfilled' && Array.isArray(couponsRes.value?.coupons)) {
+        setCoupons(couponsRes.value.coupons.map(formatDashboardCoupon));
         syncCount++;
       }
 
@@ -525,23 +554,7 @@ export const AdminProvider = ({ children }) => {
 
       if (res?.success && res.coupon) {
         const c = res.coupon;
-        const formatted = {
-          id: c.id,
-          code: c.code,
-          type: c.discountType === 'percentage' ? 'Percentage' : 'Flat',
-          value: c.value,
-          minOrderValue: c.minSpend,
-          maxDiscount: c.maxDiscount,
-          applicableCategory: c.applicableCategory || 'All',
-          applicableProductIds: c.applicableProductIds || [],
-          applicableProductNames: c.applicableProductNames || [],
-          description: c.description,
-          expiresAt: c.expiresAt,
-          isExpired: c.isExpired,
-          maxUses: c.maxUses || 500,
-          usedCount: c.usedCount || 0,
-          status: c.isActive && !c.isExpired ? 'Active' : 'Inactive',
-        };
+        const formatted = formatDashboardCoupon(c);
         setCoupons((prev) => [formatted, ...prev]);
         showToast(`Coupon ${formatted.code} created successfully!`);
         return { success: true, coupon: formatted };
@@ -558,7 +571,7 @@ export const AdminProvider = ({ children }) => {
     try {
       await adminApi.toggleCouponStatus(id);
       setCoupons((prev) =>
-        prev.map((c) => (c.id === id ? { ...c, status: c.status === 'Active' ? 'Inactive' : 'Active' } : c))
+        prev.map((c) => (String(c.id) === String(id) ? { ...c, status: c.status === 'Active' ? 'Inactive' : 'Active', isActive: c.status !== 'Active' } : c))
       );
       showToast('Coupon status updated');
     } catch (err) {
@@ -570,7 +583,7 @@ export const AdminProvider = ({ children }) => {
   const deleteCoupon = async (id) => {
     try {
       await adminApi.deleteCoupon(id);
-      setCoupons((prev) => prev.filter((c) => c.id !== id));
+      setCoupons((prev) => prev.filter((c) => String(c.id) !== String(id) && String(c.code) !== String(id)));
       showToast('Coupon deleted successfully', 'info');
       return { success: true };
     } catch (err) {
