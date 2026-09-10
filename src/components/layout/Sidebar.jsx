@@ -20,6 +20,8 @@ import {
   Sliders,
   BookOpen,
   FileText,
+  MessageSquare,
+  PhoneCall,
   LogOut
 } from 'lucide-react';
 
@@ -68,6 +70,13 @@ export const Sidebar = () => {
       badgeColor: 'bg-purple-500 text-white'
     },
     { name: 'Coupons', path: '/coupons', icon: TicketPercent },
+    {
+      name: 'Customer Inquiries',
+      path: '/inquiries',
+      icon: MessageSquare,
+      badge: 'Live',
+      badgeColor: 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold'
+    },
   ];
 
   const cmsNav = [
@@ -84,6 +93,11 @@ export const Sidebar = () => {
       icon: BookOpen,
       badge: `${cmsBlogs?.length || 3} Posts`,
       badgeColor: 'bg-amber-500/20 text-amber-300 border border-amber-500/30 font-bold'
+    },
+    {
+      name: 'Contact & Inquiries',
+      path: '/inquiries',
+      icon: MessageSquare
     },
     {
       name: 'Static Pages & FAQ',

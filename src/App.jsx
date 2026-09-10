@@ -25,6 +25,7 @@ import { Settings } from './pages/Settings.jsx';
 import { HomePageCms } from './pages/cms/HomePageCms.jsx';
 import { BlogManagementCms } from './pages/cms/BlogManagementCms.jsx';
 import { StaticPagesCms } from './pages/cms/StaticPagesCms.jsx';
+import { ContactInquiries } from './pages/ContactInquiries.jsx';
 
 export default function App() {
   return (
@@ -55,6 +56,9 @@ export default function App() {
             <Route path="payments" element={<Payments />} />
             <Route path="returns" element={<Returns />} />
             <Route path="coupons" element={<Coupons />} />
+            <Route path="inquiries" element={<ContactInquiries />} />
+            <Route path="contact" element={<ContactInquiries />} />
+            <Route path="cms/contact" element={<ContactInquiries />} />
             <Route path="reports" element={<Reports />} />
             <Route path="settings" element={<Settings />} />
 

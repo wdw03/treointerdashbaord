@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAdmin } from '../context/AdminContext.jsx';
 import { ProductImage } from '../components/ui/ProductImage.jsx';
+import { adminApi } from '../services/api.js';
 import { calculateOrderTotal } from '../data/orders.js';
 import { usePageLoading } from '../hooks/usePageLoading.js';
 import {
@@ -28,7 +29,9 @@ import {
   Calendar,
   ChevronRight,
   Eye,
-  FileText
+  FileText,
+  MessageSquare,
+  Mail
 } from 'lucide-react';
 import {
   AreaChart,
@@ -74,6 +77,21 @@ export const Dashboard = () => {
   const isPageLoading = usePageLoading(450);
   const navigate = useNavigate();
   const containerRef = useRef(null);
+
+  // Live Contact Inquiries State
+  const [recentInquiries, setRecentInquiries] = React.useState([]);
+  const [inquiriesLoading, setInquiriesLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    adminApi.getContactMessages({ limit: 4 })
+      .then((res) => {
+        if (res && Array.isArray(res.messages)) {
+          setRecentInquiries(res.messages.slice(0, 4));
+        }
+      })
+      .catch((err) => console.warn('Dashboard inquiries load notice:', err))
+      .finally(() => setInquiriesLoading(false));
+  }, []);
 
   useEffect(() => {
     if (isPageLoading) return;
@@ -661,6 +679,92 @@ export const Dashboard = () => {
               ))
             )}
           </div>
+        </div>
+      </div>
+      {/* RECENT CUSTOMER INQUIRIES & CONTACT DESK */}
+      <div className="admin-card p-5 dash-section space-y-4">
+        <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-indigo-500/20 text-indigo-400 flex items-center justify-center">
+              <MessageSquare className="w-4 h-4" />
+            </div>
+            <div>
+              <h3 className="font-bold text-white text-base flex items-center gap-2">
+                Recent Customer Inquiries
+                <span className="text-xs px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 font-mono">
+                  {recentInquiries.length} New
+                </span>
+              </h3>
+              <p className="text-xs text-slate-400">
+                Inquiries and custom bridal patch requests submitted from the storefront
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={() => navigate('/inquiries')}
+            className="text-xs font-semibold text-indigo-400 hover:text-indigo-300 flex items-center gap-1 transition-colors cursor-pointer"
+          >
+            <span>Manage All Inquiries</span>
+            <ChevronRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+          {inquiriesLoading ? (
+            Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="p-3.5 rounded-xl bg-slate-950/40 border border-slate-800 space-y-2">
+                <Skeleton className="h-3 w-20" />
+                <Skeleton className="h-4 w-32" />
+                <Skeleton className="h-3 w-full" />
+              </div>
+            ))
+          ) : recentInquiries.length === 0 ? (
+            <div className="col-span-full py-8 text-center text-slate-500 text-xs">
+              No recent customer inquiries logged yet.
+            </div>
+          ) : (
+            recentInquiries.map((inq) => (
+              <div
+                key={inq.id}
+                onClick={() => navigate('/inquiries')}
+                className="p-3.5 rounded-xl bg-slate-950/40 border border-slate-800 hover:border-indigo-500/40 hover:bg-slate-800/30 transition-all cursor-pointer flex flex-col justify-between gap-3 group"
+              >
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] text-slate-400 font-mono">
+                      {new Date(inq.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                    </span>
+                    <span
+                      className={`text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                        inq.status === 'unread'
+                          ? 'bg-amber-500/20 text-amber-300'
+                          : inq.status === 'replied'
+                          ? 'bg-emerald-500/20 text-emerald-300'
+                          : 'bg-sky-500/20 text-sky-300'
+                      }`}
+                    >
+                      {inq.status}
+                    </span>
+                  </div>
+                  <h4 className="font-bold text-slate-100 group-hover:text-indigo-400 transition-colors truncate">
+                    {inq.name}
+                  </h4>
+                  <p className="text-[11px] text-indigo-400/90 font-medium truncate">
+                    {inq.subject || 'General Inquiry'}
+                  </p>
+                  <p className="text-slate-400 text-[11px] line-clamp-2 leading-relaxed">
+                    {inq.message}
+                  </p>
+                </div>
+
+                <div className="pt-2 border-t border-slate-800/60 flex items-center justify-between text-[11px] text-slate-400">
+                  <span className="truncate max-w-[120px]">{inq.email}</span>
+                  <span className="text-indigo-400 group-hover:translate-x-0.5 transition-transform">→</span>
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </div>
     </div>
