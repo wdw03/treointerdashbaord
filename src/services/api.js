@@ -209,4 +209,23 @@ export const adminApi = {
       body: JSON.stringify({ toggleStatus: true }),
     });
   },
+
+  // Customer Contact Inquiries
+  getContactMessages: async (params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    return request('/admin/contact' + (query ? '?' + query : ''));
+  },
+
+  updateContactMessage: async (id, data) => {
+    return request('/admin/contact/' + id, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  },
+
+  deleteContactMessage: async (id) => {
+    return request('/admin/contact/' + id, {
+      method: 'DELETE',
+    });
+  },
 };
