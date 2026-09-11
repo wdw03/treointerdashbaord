@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useAdmin } from '../context/AdminContext.jsx';
 import { adminApi } from '../services/api.js';
 import { ProductImage } from '../components/ui/ProductImage.jsx';
@@ -584,6 +585,27 @@ export const Orders = () => {
                             <option key={st} value={st}>{st}</option>
                           ))}
                         </select>
+                        {(() => {
+                          let claim = null;
+                          if (order.notes) {
+                            try {
+                              const p = JSON.parse(order.notes);
+                              claim = p.returnClaim;
+                            } catch (_) {}
+                          }
+                          if (!claim) return null;
+                          return (
+                            <Link
+                              to="/returns"
+                              onClick={(e) => e.stopPropagation()}
+                              className="mt-1 inline-flex items-center gap-1 text-[10px] font-bold text-amber-400 hover:text-amber-300 bg-amber-500/10 border border-amber-500/30 px-1.5 py-0.5 rounded-md transition-colors"
+                              title={`Return ticket ${claim.ticketId} active`}
+                            >
+                              <RotateCcw className="w-2.5 h-2.5 shrink-0" />
+                              <span>Claim: {claim.status?.replace(/_/g, ' ') || 'Requested'}</span>
+                            </Link>
+                          );
+                        })()}
                       </td>
 
                       {/* Courier & Tracking */}
