@@ -257,4 +257,16 @@ export const adminApi = {
       body: JSON.stringify({ orderId }),
     });
   },
+
+  // Return & Refund Claims
+  getReturns: async () => {
+    return request('/admin/returns');
+  },
+
+  updateReturnStatus: async (id, action, details = {}) => {
+    return request(`/admin/returns/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ action, ...details }),
+    });
+  },
 };

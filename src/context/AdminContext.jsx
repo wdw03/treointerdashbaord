@@ -170,7 +170,8 @@ export const AdminProvider = ({ children }) => {
     const loadInitialData = async () => {
       try {
         setIsLoading(true);
-        const [prodsRes, ordersRes, catsRes, custsRes, blogsRes, couponsRes] = await Promise.allSettled([
+        const [prodsRes, ordersRes, catsRes, custsRes, blogsRes, couponsRes, returnsRes] = await Promise.allSettled([
+          adminApi.getReturns(),
           adminApi.getProducts(),
           adminApi.getOrders(),
           adminApi.getCategories(),
@@ -229,6 +230,9 @@ export const AdminProvider = ({ children }) => {
               refundAmount: Number(o.total || 0),
               date: o.updated_at ? o.updated_at.split('T')[0] : '2026-09-08',
             })));
+        }
+                if (returnsRes?.status === 'fulfilled' && Array.isArray(returnsRes.value?.returns)) {
+          setReturns(returnsRes.value.returns);
         }
         if (catsRes.status === 'fulfilled' && Array.isArray(catsRes.value?.categories)) {
           setCategories(catsRes.value.categories);
@@ -606,24 +610,35 @@ export const AdminProvider = ({ children }) => {
   };
 
   // ═══════════════════════════════════════════════════════════════
-  // RETURN OPERATIONS
+  // RETURN OPERATIONS (CONNECTED TO LIVE DATABASE API)
   // ═══════════════════════════════════════════════════════════════
-  const updateReturnStatus = (returnId, newStatus) => {
-    setReturns((prev) =>
-      prev.map((r) => {
-        if (r.id === returnId) {
-          const updatedTimeline = r.timeline.map((step) => {
-            if (step.step.toLowerCase().includes(newStatus.toLowerCase())) {
-              return { ...step, done: true, date: new Date().toLocaleString() };
-            }
-            return step;
-          });
-          return { ...r, status: newStatus, timeline: updatedTimeline };
-        }
-        return r;
-      })
-    );
-    showToast(`Return ${returnId} updated to ${newStatus}`);
+  const refreshReturns = async () => {
+    try {
+      const res = await adminApi.getReturns();
+      if (res && Array.isArray(res.returns)) {
+        setReturns(res.returns);
+        return res.returns;
+      }
+    } catch (err) {
+      console.warn('refreshReturns failed:', err);
+    }
+  };
+
+  const updateReturnStatus = async (returnId, actionOrStatus, details = {}) => {
+    try {
+      const res = await adminApi.updateReturnStatus(returnId, actionOrStatus, details);
+      if (res && res.success) {
+        showToast(`Return claim updated to ${res.claim?.status || actionOrStatus}`);
+      } else {
+        showToast(`Return claim updated to ${actionOrStatus}`);
+      }
+      await refreshReturns();
+      await refreshOrders();
+      return res;
+    } catch (err) {
+      console.error('updateReturnStatus error:', err);
+      showToast(err.message || 'Failed to update return claim', 'error');
+    }
   };
 
   // ═══════════════════════════════════════════════════════════════
@@ -925,6 +940,7 @@ export const AdminProvider = ({ children }) => {
         toggleCouponStatus,
         deleteCoupon,
         updateReturnStatus,
+        refreshReturns,
 
         // CMS Actions
         saveHeroSlide,
