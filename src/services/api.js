@@ -228,4 +228,33 @@ export const adminApi = {
       method: 'DELETE',
     });
   },
+
+  // Shiprocket Shipment Actions
+  createShipment: async (orderId) => {
+    return request('/admin/shipments/create', {
+      method: 'POST',
+      body: JSON.stringify({ orderId }),
+    });
+  },
+
+  assignAWB: async (orderId, courierId) => {
+    return request('/admin/shipments/awb', {
+      method: 'POST',
+      body: JSON.stringify({ orderId, courierId }),
+    });
+  },
+
+  getShiprocketLabel: async (orderId, shipmentId) => {
+    return request('/admin/shipments/label', {
+      method: 'POST',
+      body: JSON.stringify({ orderId, shipmentId }),
+    });
+  },
+
+  requestPickup: async (orderId) => {
+    return request('/admin/shipments/pickup', {
+      method: 'POST',
+      body: JSON.stringify({ orderId }),
+    });
+  },
 };

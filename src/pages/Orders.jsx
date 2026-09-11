@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useAdmin } from '../context/AdminContext.jsx';
+import { adminApi } from '../services/api.js';
 import { ProductImage } from '../components/ui/ProductImage.jsx';
 import { calculateOrderTotal, ORDER_STATUSES } from '../data/orders.js';
 import { usePageLoading } from '../hooks/usePageLoading.js';
@@ -8,6 +9,11 @@ import {
   Search,
   Filter,
   Printer,
+  Loader2,
+  AlertCircle,
+  RefreshCw,
+  ExternalLink,
+  Package,
   FileText,
   Truck,
   CheckCircle2,
@@ -26,7 +32,7 @@ import {
 } from 'lucide-react';
 
 export const Orders = () => {
-  const { orders, updateOrderStatus, bulkUpdateOrderStatus, setPrintDocument, showToast } = useAdmin();
+  const { orders, updateOrderStatus, bulkUpdateOrderStatus, setPrintDocument, showToast, refreshOrders } = useAdmin();
   const isPageLoading = usePageLoading(450);
 
   // Active Tab Filter (All or specific status)
@@ -37,6 +43,96 @@ export const Orders = () => {
   const [selectedOrders, setSelectedOrders] = useState([]);
   const [selectedOrderDetails, setSelectedOrderDetails] = useState(null); // for modal view
   const [sortBy, setSortBy] = useState('date_desc');
+  const [shipmentActionLoading, setShipmentActionLoading] = useState(false);
+  const [actionMessage, setActionMessage] = useState('');
+
+  // Keep selectedOrderDetails in sync when orders update
+  useEffect(() => {
+    if (selectedOrderDetails) {
+      const updated = orders.find((o) => o.id === selectedOrderDetails.id);
+      if (updated) {
+        setSelectedOrderDetails(updated);
+      }
+    }
+  }, [orders]);
+
+  const handleCreateShipment = async (orderId) => {
+    setShipmentActionLoading(true);
+    setActionMessage('Creating Shiprocket shipment...');
+    try {
+      const res = await adminApi.createShipment(orderId);
+      if (res && res.success) {
+        showToast(res.alreadyExists ? 'Shipment already exists' : 'Shiprocket shipment created successfully!');
+        if (refreshOrders) await refreshOrders();
+      } else {
+        showToast(res?.error || 'Failed to create shipment');
+      }
+    } catch (err) {
+      showToast(err.message || 'Shipment creation failed');
+    } finally {
+      setShipmentActionLoading(false);
+      setActionMessage('');
+    }
+  };
+
+  const handleAssignAWB = async (orderId) => {
+    setShipmentActionLoading(true);
+    setActionMessage('Assigning AWB from Shiprocket...');
+    try {
+      const res = await adminApi.assignAWB(orderId);
+      if (res && res.success) {
+        showToast(`AWB ${res.awbNumber || ''} assigned successfully!`);
+        if (refreshOrders) await refreshOrders();
+      } else {
+        showToast(res?.error || 'Failed to assign AWB');
+      }
+    } catch (err) {
+      showToast(err.message || 'AWB assignment failed');
+    } finally {
+      setShipmentActionLoading(false);
+      setActionMessage('');
+    }
+  };
+
+  const handleRequestPickup = async (orderId) => {
+    setShipmentActionLoading(true);
+    setActionMessage('Scheduling courier pickup...');
+    try {
+      const res = await adminApi.requestPickup(orderId);
+      if (res && res.success) {
+        showToast(res.alreadyScheduled ? 'Pickup already scheduled' : 'Courier pickup scheduled successfully!');
+        if (refreshOrders) await refreshOrders();
+      } else {
+        showToast(res?.error || 'Failed to schedule pickup');
+      }
+    } catch (err) {
+      showToast(err.message || 'Pickup request failed');
+    } finally {
+      setShipmentActionLoading(false);
+      setActionMessage('');
+    }
+  };
+
+  const handlePrintShiprocketLabel = async (order) => {
+    setShipmentActionLoading(true);
+    setActionMessage('Fetching Shiprocket shipping label...');
+    try {
+      const res = await adminApi.getShiprocketLabel(order.id);
+      if (res && res.labelUrl) {
+        window.open(res.labelUrl, '_blank', 'noopener,noreferrer');
+        showToast('Shiprocket shipping label opened!');
+      } else {
+        showToast('Official PDF label not available yet. Printing standard label.');
+        setPrintDocument({ type: 'shipping_label', data: order });
+      }
+    } catch (err) {
+      console.warn('Official label fetch failed, using fallback:', err.message);
+      setPrintDocument({ type: 'shipping_label', data: order });
+    } finally {
+      setShipmentActionLoading(false);
+      setActionMessage('');
+    }
+  };
 
   // Scroll controls for horizontal status tabs
   const tabsContainerRef = useRef(null);
@@ -573,10 +669,11 @@ export const Orders = () => {
                   <Printer className="w-3.5 h-3.5" /> Print Invoice
                 </button>
                 <button
-                  onClick={() => setPrintDocument({ type: 'shipping_label', data: selectedOrderDetails })}
+                  onClick={() => handlePrintShiprocketLabel(selectedOrderDetails)}
                   className="btn-secondary py-1 px-2.5 text-xs flex-1 sm:flex-initial"
+                  title="Print Official Shiprocket Shipping Label"
                 >
-                  <Truck className="w-3.5 h-3.5" /> Label
+                  <Truck className="w-3.5 h-3.5" /> Shiprocket Label
                 </button>
                 <button
                   onClick={() => setSelectedOrderDetails(null)}
@@ -670,6 +767,148 @@ export const Orders = () => {
                   <p className="text-slate-300">Payment: <span className="text-emerald-400 font-semibold">{selectedOrderDetails.paymentMethod} ({selectedOrderDetails.paymentStatus})</span></p>
                   <p className="text-slate-400 pt-1 text-[11px]">Est: {selectedOrderDetails.estimatedDelivery}</p>
                 </div>
+              </div>
+
+              {/* Shiprocket Logistics & Controls Card */}
+              <div className="bg-slate-950 p-3.5 sm:p-5 rounded-xl border border-indigo-900/40 bg-gradient-to-br from-indigo-950/20 to-slate-950 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800/80 pb-2.5">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
+                      <Truck className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-white uppercase tracking-wider">Shiprocket Logistics &amp; Shipping Controls</h4>
+                      <p className="text-[10px] text-slate-400">Live carrier assignment, AWB generation, and pickup dispatch</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {selectedOrderDetails.trackingNumber && !selectedOrderDetails.trackingNumber.startsWith('SR-') ? (
+                      <a
+                        href={`https://shiprocket.co/tracking/${selectedOrderDetails.trackingNumber}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-[11px] text-indigo-400 hover:text-indigo-300 font-mono bg-indigo-500/10 border border-indigo-500/20 px-2 py-0.5 rounded transition-colors"
+                      >
+                        Track Shipment <ExternalLink className="w-3 h-3" />
+                      </a>
+                    ) : null}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs">
+                  <div className="bg-slate-900/80 p-2.5 rounded-lg border border-slate-800">
+                    <span className="text-[10px] uppercase text-slate-500 block font-bold">Courier</span>
+                    <span className="text-slate-200 font-semibold truncate block mt-0.5">
+                      {selectedOrderDetails.shippingPartner || 'Pending Assignment'}
+                    </span>
+                  </div>
+
+                  <div className="bg-slate-900/80 p-2.5 rounded-lg border border-slate-800">
+                    <span className="text-[10px] uppercase text-slate-500 block font-bold">AWB Code</span>
+                    <span className="font-mono text-indigo-400 font-semibold truncate block mt-0.5">
+                      {selectedOrderDetails.trackingNumber || 'Not Assigned'}
+                    </span>
+                  </div>
+
+                  <div className="bg-slate-900/80 p-2.5 rounded-lg border border-slate-800">
+                    <span className="text-[10px] uppercase text-slate-500 block font-bold">Shipment Status</span>
+                    <span className="text-slate-200 font-semibold truncate block mt-0.5 capitalize">
+                      {selectedOrderDetails.shipmentStatus || selectedOrderDetails.status || 'Pending'}
+                    </span>
+                  </div>
+
+                  <div className="bg-slate-900/80 p-2.5 rounded-lg border border-slate-800">
+                    <span className="text-[10px] uppercase text-slate-500 block font-bold">Pickup Status</span>
+                    <span className="text-emerald-400 font-semibold truncate block mt-0.5 capitalize">
+                      {selectedOrderDetails.pickupStatus || 'Not Requested'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Logistics Action Buttons */}
+                <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-slate-800/80">
+                  {/* Create Shipment button if no shipment or tracking */}
+                  {(!selectedOrderDetails.trackingNumber || selectedOrderDetails.shippingPartner === 'Awaiting Shipment') && (
+                    <button
+                      onClick={() => handleCreateShipment(selectedOrderDetails.id)}
+                      disabled={shipmentActionLoading}
+                      className="btn-primary py-1.5 px-3 text-xs flex items-center gap-1.5"
+                    >
+                      <Package className="w-3.5 h-3.5" />
+                      {shipmentActionLoading ? 'Creating...' : 'Create Shipment'}
+                    </button>
+                  )}
+
+                  {/* Assign AWB if shipment exists but no real AWB */}
+                  {(!selectedOrderDetails.trackingNumber || selectedOrderDetails.trackingNumber.startsWith('SR-')) && (
+                    <button
+                      onClick={() => handleAssignAWB(selectedOrderDetails.id)}
+                      disabled={shipmentActionLoading}
+                      className="btn-secondary py-1.5 px-3 text-xs flex items-center gap-1.5 border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/10"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      {shipmentActionLoading ? 'Assigning...' : 'Assign AWB'}
+                    </button>
+                  )}
+
+                  {/* Mark as Packed button */}
+                  {['Confirmed', 'Processing', 'New'].includes(selectedOrderDetails.status) && (
+                    <button
+                      onClick={async () => {
+                        await updateOrderStatus(selectedOrderDetails.id, 'Packed');
+                      }}
+                      disabled={shipmentActionLoading}
+                      className="btn-secondary py-1.5 px-3 text-xs flex items-center gap-1.5 border-amber-500/30 text-amber-300 hover:bg-amber-500/10"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5 text-amber-400" />
+                      Mark as Packed
+                    </button>
+                  )}
+
+                  {/* Schedule Pickup button */}
+                  {selectedOrderDetails.status === 'Packed' && (
+                    <button
+                      onClick={() => handleRequestPickup(selectedOrderDetails.id)}
+                      disabled={shipmentActionLoading}
+                      className="btn-primary py-1.5 px-3 text-xs flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 border-emerald-500"
+                    >
+                      <Truck className="w-3.5 h-3.5" />
+                      {shipmentActionLoading ? 'Scheduling...' : 'Schedule Pickup'}
+                    </button>
+                  )}
+
+                  {/* Print Official Shiprocket Label (PDF) */}
+                  <button
+                    onClick={() => handlePrintShiprocketLabel(selectedOrderDetails)}
+                    disabled={shipmentActionLoading}
+                    className="btn-secondary py-1.5 px-3 text-xs flex items-center gap-1.5"
+                    title="Fetch and print official Shiprocket carrier barcode label PDF"
+                  >
+                    <Printer className="w-3.5 h-3.5" />
+                    Shiprocket Label (PDF)
+                  </button>
+
+                  {/* Re-sync with backend */}
+                  <button
+                    onClick={async () => {
+                      if (refreshOrders) {
+                        showToast('Syncing orders & shipments...');
+                        await refreshOrders();
+                      }
+                    }}
+                    disabled={shipmentActionLoading}
+                    className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors ml-auto"
+                    title="Re-sync shipment data"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+
+                {actionMessage && (
+                  <p className="text-[11px] text-indigo-300 animate-pulse flex items-center gap-1.5">
+                    <Clock className="w-3 h-3" /> {actionMessage}
+                  </p>
+                )}
               </div>
             </div>
           </div>

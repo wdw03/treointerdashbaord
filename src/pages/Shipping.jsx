@@ -42,7 +42,7 @@ const SHIPPING_TABS = [
 ];
 
 export const Shipping = () => {
-  const { orders, setPrintDocument, updateOrderStatus, showToast } = useAdmin();
+  const { orders, setPrintDocument, updateOrderStatus, showToast, refreshOrders } = useAdmin();
   const isPageLoading = usePageLoading(450);
 
   // Main View Switcher: 'shipments' | 'cod_pincodes'
@@ -156,6 +156,64 @@ export const Shipping = () => {
       );
     });
   }, [codPincodes, codSearch]);
+
+  const [shipmentActionLoading, setShipmentActionLoading] = useState(false);
+
+  const handlePrintShiprocketLabel = async (s) => {
+    setShipmentActionLoading(true);
+    showToast('Fetching Shiprocket shipping label...');
+    try {
+      const res = await adminApi.getShiprocketLabel(s.id);
+      if (res && res.labelUrl) {
+        window.open(res.labelUrl, '_blank', 'noopener,noreferrer');
+        showToast('Shiprocket shipping label opened!');
+      } else {
+        showToast('Official PDF label not ready yet. Printing standard label.');
+        setPrintDocument({ type: 'shipping_label', data: s });
+      }
+    } catch (err) {
+      console.warn('Shiprocket label fetch error, using fallback:', err.message);
+      setPrintDocument({ type: 'shipping_label', data: s });
+    } finally {
+      setShipmentActionLoading(false);
+    }
+  };
+
+  const handleAssignAWB = async (orderId) => {
+    setShipmentActionLoading(true);
+    showToast('Assigning AWB from Shiprocket...');
+    try {
+      const res = await adminApi.assignAWB(orderId);
+      if (res && res.success) {
+        showToast(`AWB ${res.awbNumber || ''} assigned successfully!`);
+        if (refreshOrders) await refreshOrders();
+      } else {
+        showToast(res?.error || 'Failed to assign AWB');
+      }
+    } catch (err) {
+      showToast(err.message || 'AWB assignment failed');
+    } finally {
+      setShipmentActionLoading(false);
+    }
+  };
+
+  const handleRequestPickup = async (orderId) => {
+    setShipmentActionLoading(true);
+    showToast('Scheduling courier pickup...');
+    try {
+      const res = await adminApi.requestPickup(orderId);
+      if (res && res.success) {
+        showToast(res.alreadyScheduled ? 'Pickup already scheduled' : 'Courier pickup scheduled!');
+        if (refreshOrders) await refreshOrders();
+      } else {
+        showToast(res?.error || 'Failed to schedule pickup');
+      }
+    } catch (err) {
+      showToast(err.message || 'Pickup request failed');
+    } finally {
+      setShipmentActionLoading(false);
+    }
+  };
 
   const handleBulkPrintLabels = () => {
     const list = shipments.filter((s) => selectedShipments.includes(s.id));
@@ -958,10 +1016,35 @@ export const Shipping = () => {
                           </td>
                           <td className="table-td text-right">
                             <div className="flex items-center justify-end gap-1.5">
+                              {/* Assign AWB button if missing */}
+                              {(!s.trackingNumber || s.trackingNumber.startsWith('SR-')) && (
+                                <button
+                                  onClick={() => handleAssignAWB(s.id)}
+                                  disabled={shipmentActionLoading}
+                                  className="btn-secondary py-1 px-2 text-[11px] border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/10"
+                                  title="Assign Courier AWB"
+                                >
+                                  AWB
+                                </button>
+                              )}
+
+                              {/* Pickup button if Packed */}
+                              {s.status === 'Packed' && (
+                                <button
+                                  onClick={() => handleRequestPickup(s.id)}
+                                  disabled={shipmentActionLoading}
+                                  className="btn-secondary py-1 px-2 text-[11px] border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/10"
+                                  title="Schedule Courier Pickup"
+                                >
+                                  Pickup
+                                </button>
+                              )}
+
                               <button
-                                onClick={() => setPrintDocument({ type: 'shipping_label', data: s })}
+                                onClick={() => handlePrintShiprocketLabel(s)}
+                                disabled={shipmentActionLoading}
                                 className="btn-secondary py-1 px-2.5 text-xs"
-                                title="Print Shipping Label"
+                                title="Print Official Shiprocket Shipping Label"
                               >
                                 <Printer className="w-3.5 h-3.5" /> Label
                               </button>
@@ -996,7 +1079,19 @@ export const Shipping = () => {
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <div>
                 <h3 className="font-bold text-white text-base">Shipment Tracking</h3>
-                <p className="text-xs text-indigo-400 font-mono">{timelineOrder.trackingNumber} ({timelineOrder.shippingPartner})</p>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <p className="text-xs text-indigo-400 font-mono">{timelineOrder.trackingNumber || 'Pending AWB'} ({timelineOrder.shippingPartner})</p>
+                  {timelineOrder.trackingNumber && !timelineOrder.trackingNumber.startsWith('SR-') && (
+                    <a
+                      href={`https://shiprocket.co/tracking/${timelineOrder.trackingNumber}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[10px] text-indigo-400 hover:text-indigo-300 flex items-center gap-0.5 underline"
+                    >
+                      Track Live <ExternalLink className="w-2.5 h-2.5" />
+                    </a>
+                  )}
+                </div>
               </div>
               <button onClick={() => setTimelineOrder(null)} className="text-slate-400 hover:text-white p-1 rounded-lg">
                 <X className="w-5 h-5" />
@@ -1042,12 +1137,12 @@ export const Shipping = () => {
               <span className="text-slate-400">Recipient: {timelineOrder.customer.name}</span>
               <button
                 onClick={() => {
-                  setPrintDocument({ type: 'shipping_label', data: timelineOrder });
+                  handlePrintShiprocketLabel(timelineOrder);
                   setTimelineOrder(null);
                 }}
-                className="btn-primary py-1.5 px-3 text-xs"
+                className="btn-primary py-1.5 px-3 text-xs flex items-center gap-1.5"
               >
-                Print Label
+                <Printer className="w-3.5 h-3.5" /> Print Shiprocket Label
               </button>
             </div>
           </div>

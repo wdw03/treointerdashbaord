@@ -411,6 +411,17 @@ export const AdminProvider = ({ children }) => {
   // ═══════════════════════════════════════════════════════════════
   // ORDER OPERATIONS (CONNECTED TO LIVE DATABASE API)
   // ═══════════════════════════════════════════════════════════════
+  const refreshOrders = async () => {
+    try {
+      const res = await adminApi.getOrders();
+      if (res && Array.isArray(res.orders)) {
+        setOrders(res.orders);
+        return res.orders;
+      }
+    } catch (err) {
+      console.warn('refreshOrders failed:', err);
+    }
+  };
   const updateOrderStatus = async (orderId, newStatus) => {
     setOrders((prev) =>
       prev.map((ord) => (ord.id === orderId || ord.order_number === orderId ? { ...ord, status: newStatus } : ord))
@@ -418,7 +429,8 @@ export const AdminProvider = ({ children }) => {
 
     try {
       await adminApi.updateOrderStatus(orderId, newStatus);
-      showToast(`Order ${orderId} status changed to ${newStatus} in DB`);
+      showToast(`Order ${orderId} status changed to ${newStatus}`);
+      await refreshOrders();
     } catch (err) {
       showToast(`Order ${orderId} status changed to ${newStatus}`);
     }
@@ -898,6 +910,7 @@ export const AdminProvider = ({ children }) => {
 
         // Actions
         refreshData,
+        refreshOrders,
         addProduct,
         updateProduct,
         deleteProduct,
