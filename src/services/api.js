@@ -1,8 +1,8 @@
-﻿// Centralized API Client for Trio Ecart Admin Dashboard
+// Centralized API Client for Trio Ecart Admin Dashboard
 // Direct live production backend fallback for Vercel deployments
 const LIVE_BACKEND_URL = 'https://trioenterprises.in';
 const BACKEND_FALLBACK = 'https://treobackend.vercel.app';
-const TRIOTECH_FALLBACK = 'https://trieotech.vercel.app/api';
+const TRIOTECH_FALLBACK = 'https://trioenterprises.in/api';
 const RAW_URL = (import.meta.env.VITE_API_URL && import.meta.env.VITE_API_URL !== '')
   ? import.meta.env.VITE_API_URL 
   : LIVE_BACKEND_URL;
