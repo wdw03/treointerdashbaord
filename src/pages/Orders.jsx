@@ -20,6 +20,7 @@ import {
   CheckCircle2,
   Clock,
   RotateCcw,
+  MessageSquare,
   XCircle,
   Eye,
   Download,
@@ -31,6 +32,13 @@ import {
   ChevronLeft,
   ChevronRight
 } from 'lucide-react';
+
+const cleanPhone = (phone) => {
+  if (!phone) return '';
+  const digits = String(phone).replace(/\D/g, '');
+  if (digits.length === 10) return `91${digits}`;
+  return digits;
+};
 
 export const Orders = () => {
   const { orders, updateOrderStatus, bulkUpdateOrderStatus, setPrintDocument, showToast, refreshOrders } = useAdmin();
@@ -527,7 +535,24 @@ export const Orders = () => {
                       {/* Customer Info */}
                       <td className="table-td px-3.5 py-3 cursor-pointer" onClick={() => setSelectedOrderDetails(order)}>
                         <div className="font-semibold text-slate-200 text-xs">{order.customer.name}</div>
-                        <div className="text-[11px] text-slate-400">{order.customer.phone}</div>
+                        <div className="text-[11px] text-slate-400 flex items-center gap-1.5 mt-0.5">
+                          <span>{order.customer.phone}</span>
+                          {order.customer.phone && (
+                            <a
+                              href={`https://wa.me/${cleanPhone(order.customer.phone)}?text=${encodeURIComponent(
+                                `Hello ${order.customer.name}, this is Trio Enterprises support regarding Order #${order.id}.`
+                              )}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className="inline-flex items-center gap-0.5 text-[9px] font-bold text-emerald-400 hover:text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 px-1.5 py-0.2 rounded transition-colors"
+                              title="Chat with customer on WhatsApp"
+                            >
+                              <MessageSquare className="w-2.5 h-2.5" />
+                              <span>WA</span>
+                            </a>
+                          )}
+                        </div>
                         <div className="text-[10px] text-slate-500 truncate max-w-[140px]">{order.customer.address.city}, {order.customer.address.state}</div>
                       </td>
 
@@ -595,15 +620,22 @@ export const Orders = () => {
                           }
                           if (!claim) return null;
                           return (
-                            <Link
-                              to="/returns"
-                              onClick={(e) => e.stopPropagation()}
-                              className="mt-1 inline-flex items-center gap-1 text-[10px] font-bold text-amber-400 hover:text-amber-300 bg-amber-500/10 border border-amber-500/30 px-1.5 py-0.5 rounded-md transition-colors"
-                              title={`Return ticket ${claim.ticketId} active`}
-                            >
-                              <RotateCcw className="w-2.5 h-2.5 shrink-0" />
-                              <span>Claim: {claim.status?.replace(/_/g, ' ') || 'Requested'}</span>
-                            </Link>
+                            <div className="mt-1 flex flex-col gap-0.5">
+                              <Link
+                                to="/returns"
+                                onClick={(e) => e.stopPropagation()}
+                                className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-400 hover:text-amber-300 bg-amber-500/10 border border-amber-500/30 px-1.5 py-0.5 rounded-md transition-colors"
+                                title={`Return ticket ${claim.ticketId} active. Click to inspect.`}
+                              >
+                                <RotateCcw className="w-2.5 h-2.5 shrink-0" />
+                                <span>Return: {claim.status?.replace(/_/g, ' ') || 'Requested'}</span>
+                              </Link>
+                              {claim.reverseAwb && (
+                                <span className="text-[9px] font-mono text-indigo-300 truncate max-w-[130px]">
+                                  AWB: {claim.reverseAwb}
+                                </span>
+                              )}
+                            </div>
                           );
                         })()}
                       </td>
@@ -708,6 +740,103 @@ export const Orders = () => {
 
             {/* Modal Body */}
             <div className="p-3.5 sm:p-6 overflow-y-auto space-y-4 sm:space-y-6">
+              {/* Return Support Ticket Alert Banner */}
+              {(() => {
+                let claim = null;
+                if (selectedOrderDetails.notes) {
+                  try {
+                    const p = JSON.parse(selectedOrderDetails.notes);
+                    claim = p.returnClaim;
+                  } catch (_) {}
+                }
+                if (!claim) return null;
+                return (
+                  <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 space-y-3 text-xs">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="flex items-start gap-2.5">
+                        <RotateCcw className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+                        <div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-bold text-amber-300 text-sm">
+                              Support Ticket Active: {claim.ticketId}
+                            </span>
+                            <span className="px-2 py-0.5 rounded-full font-bold text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30 capitalize">
+                              {claim.status?.replace(/_/g, ' ') || 'Pending Review'}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-amber-200/90 mt-1">
+                            <strong>Reason:</strong> {claim.reason}
+                          </p>
+                          {claim.description && (
+                            <p className="text-[11px] text-slate-300 italic mt-0.5">
+                              "{claim.description}"
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 self-start sm:self-auto shrink-0 flex-wrap">
+                        {/* WhatsApp Customer Button */}
+                        {selectedOrderDetails.customer?.phone && (
+                          <a
+                            href={`https://wa.me/${cleanPhone(selectedOrderDetails.customer.phone)}?text=${encodeURIComponent(
+                              `Hello ${selectedOrderDetails.customer.name}, this is Trio Enterprises support regarding your Return Ticket ${claim.ticketId} for Order #${selectedOrderDetails.id}.`
+                            )}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="btn-primary py-1.5 px-3 text-xs bg-emerald-600 hover:bg-emerald-500 border-emerald-500 flex items-center gap-1.5"
+                            title="Chat with Customer on WhatsApp"
+                          >
+                            <MessageSquare className="w-3.5 h-3.5" />
+                            <span>WhatsApp Customer</span>
+                          </a>
+                        )}
+
+                        <Link
+                          to="/returns"
+                          className="btn-primary py-1.5 px-3 text-xs flex items-center gap-1.5 bg-amber-600 hover:bg-amber-500 text-white"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                          <span>Inspect Claim &amp; Photos</span>
+                        </Link>
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-amber-500/20 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 text-[11px] text-slate-300">
+                      <div>
+                        <span className="text-slate-400 block text-[10px] uppercase">Reverse Pickup AWB</span>
+                        <span className="font-mono font-bold text-amber-300 bg-amber-950/40 px-2 py-0.5 rounded border border-amber-800/40 inline-block mt-0.5">
+                          {claim.reverseAwb || (['approved', 'pickup_scheduled', 'returned', 'refunded'].includes(claim.status) ? `RET-AWB-${selectedOrderDetails.id}` : 'Pending AWB Generation')}
+                        </span>
+                      </div>
+
+                      <div>
+                        <span className="text-slate-400 block text-[10px] uppercase">Return Courier Partner</span>
+                        <span className="text-slate-200 font-semibold mt-0.5 block">
+                          {claim.pickupCourier || 'Delhivery Surface / BlueDart Reverse'}
+                        </span>
+                      </div>
+
+                      <div>
+                        <span className="text-slate-400 block text-[10px] uppercase">Resolution Requested</span>
+                        <span className="text-emerald-400 font-bold mt-0.5 block">
+                          {claim.resolution === 'replacement' ? 'Free Handcrafted Replacement' : `100% Full Refund (₹${selectedOrderDetails.totalAmount || selectedOrderDetails.total || 0})`}
+                        </span>
+                      </div>
+
+                      {claim.refundReason && (
+                        <div className="sm:col-span-2 md:col-span-3 pt-1 text-[11px] bg-amber-500/10 p-2 rounded-lg border border-amber-500/20">
+                          <strong className="text-amber-300">Reason for Refund / Acceptance:</strong>{' '}
+                          <span className="text-slate-200">{claim.refundReason}</span>
+                          {claim.adminNotes && (
+                            <span className="text-slate-400 block mt-0.5">Admin Note: {claim.adminNotes}</span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
               {/* Visual Order Timeline */}
               <div className="bg-slate-950 p-3 sm:p-4 rounded-xl border border-slate-800 overflow-x-auto">
                 <h4 className="text-[11px] sm:text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Shipment &amp; Delivery Timeline</h4>
