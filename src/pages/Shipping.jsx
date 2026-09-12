@@ -161,19 +161,17 @@ export const Shipping = () => {
 
   const handlePrintShiprocketLabel = async (s) => {
     setShipmentActionLoading(true);
-    showToast('Fetching Shiprocket shipping label...');
+    showToast('Generating official Shiprocket label with AWB...');
     try {
       const res = await adminApi.getShiprocketLabel(s.id);
       if (res && res.labelUrl) {
         window.open(res.labelUrl, '_blank', 'noopener,noreferrer');
-        showToast('Shiprocket shipping label opened!');
+        showToast(`Official Shiprocket label opened! (AWB: ${res.awbNumbers?.[0] || res.awb || s.trackingNumber || ''})`);
       } else {
-        showToast('Official PDF label not ready yet. Printing standard label.');
-        setPrintDocument({ type: 'shipping_label', data: s });
+        showToast(res?.error || 'Could not generate official label from Shiprocket.');
       }
     } catch (err) {
-      console.warn('Shiprocket label fetch error, using fallback:', err.message);
-      setPrintDocument({ type: 'shipping_label', data: s });
+      showToast(`Shiprocket label error: ${err.message}`);
     } finally {
       setShipmentActionLoading(false);
     }
@@ -215,10 +213,26 @@ export const Shipping = () => {
     }
   };
 
-  const handleBulkPrintLabels = () => {
-    const list = shipments.filter((s) => selectedShipments.includes(s.id));
-    if (list.length === 0) return;
-    setPrintDocument({ type: 'shipping_label', data: list });
+  const handleBulkPrintLabels = async () => {
+    if (!selectedShipments.length) {
+      showToast('Please select at least one shipment to print labels');
+      return;
+    }
+    setShipmentActionLoading(true);
+    showToast(`Generating official Shiprocket labels for ${selectedShipments.length} orders...`);
+    try {
+      const res = await adminApi.getShiprocketLabel({ orderIds: selectedShipments });
+      if (res && res.labelUrl) {
+        window.open(res.labelUrl, '_blank', 'noopener,noreferrer');
+        showToast(`Official Shiprocket labels for ${selectedShipments.length} orders opened!`);
+      } else {
+        showToast(res?.error || 'Failed to generate bulk official Shiprocket labels');
+      }
+    } catch (err) {
+      showToast(`Bulk label error: ${err.message}`);
+    } finally {
+      setShipmentActionLoading(false);
+    }
   };
 
   const handleSelectAll = (e) => {

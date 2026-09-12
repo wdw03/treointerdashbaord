@@ -245,10 +245,18 @@ export const adminApi = {
     });
   },
 
-  getShiprocketLabel: async (orderId, shipmentId) => {
+  getShiprocketLabel: async (params, directShipmentId) => {
+    let payload = {};
+    if (typeof params === 'string') {
+      payload = { orderId: params, shipmentId: directShipmentId };
+    } else if (Array.isArray(params)) {
+      payload = { orderIds: params };
+    } else if (typeof params === 'object' && params !== null) {
+      payload = params;
+    }
     return request('/admin/shipments/label', {
       method: 'POST',
-      body: JSON.stringify({ orderId, shipmentId }),
+      body: JSON.stringify(payload),
     });
   },
 

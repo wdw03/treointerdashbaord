@@ -124,19 +124,17 @@ export const Orders = () => {
 
   const handlePrintShiprocketLabel = async (order) => {
     setShipmentActionLoading(true);
-    setActionMessage('Fetching Shiprocket shipping label...');
+    setActionMessage('Generating official Shiprocket shipping label with AWB...');
     try {
       const res = await adminApi.getShiprocketLabel(order.id);
       if (res && res.labelUrl) {
         window.open(res.labelUrl, '_blank', 'noopener,noreferrer');
-        showToast('Shiprocket shipping label opened!');
+        showToast(`Official Shiprocket shipping label opened! (AWB: ${res.awbNumbers?.[0] || res.awb || order.trackingNumber || ''})`);
       } else {
-        showToast('Official PDF label not available yet. Printing standard label.');
-        setPrintDocument({ type: 'shipping_label', data: order });
+        showToast(res?.error || 'Could not generate official label from Shiprocket.');
       }
     } catch (err) {
-      console.warn('Official label fetch failed, using fallback:', err.message);
-      setPrintDocument({ type: 'shipping_label', data: order });
+      showToast(`Shiprocket label error: ${err.message}`);
     } finally {
       setShipmentActionLoading(false);
       setActionMessage('');
@@ -260,10 +258,27 @@ export const Orders = () => {
     setPrintDocument({ type: 'packing_slip', data: list });
   };
 
-  const handleBulkPrintShippingLabels = () => {
-    const list = orders.filter((o) => selectedOrders.includes(o.id));
-    if (list.length === 0) return;
-    setPrintDocument({ type: 'shipping_label', data: list });
+  const handleBulkPrintShippingLabels = async () => {
+    if (selectedOrders.length === 0) {
+      showToast('Please select at least one order to print labels');
+      return;
+    }
+    setShipmentActionLoading(true);
+    setActionMessage(`Generating official Shiprocket shipping labels for ${selectedOrders.length} orders...`);
+    try {
+      const res = await adminApi.getShiprocketLabel({ orderIds: selectedOrders });
+      if (res && res.labelUrl) {
+        window.open(res.labelUrl, '_blank', 'noopener,noreferrer');
+        showToast(`Official Shiprocket shipping labels for ${selectedOrders.length} orders opened!`);
+      } else {
+        showToast(res?.error || 'Failed to generate bulk official Shiprocket labels');
+      }
+    } catch (err) {
+      showToast(`Bulk label error: ${err.message}`);
+    } finally {
+      setShipmentActionLoading(false);
+      setActionMessage('');
+    }
   };
 
   const handleBulkStatusChange = (newStatus) => {
@@ -665,9 +680,9 @@ export const Orders = () => {
                             <FileText className="w-4 h-4" />
                           </button>
                           <button
-                            onClick={() => setPrintDocument({ type: 'shipping_label', data: order })}
+                            onClick={() => handlePrintShiprocketLabel(order)}
                             className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
-                            title="Print Shipping Label"
+                            title="Print Official Shiprocket Shipping Label"
                           >
                             <Truck className="w-4 h-4" />
                           </button>

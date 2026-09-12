@@ -13,6 +13,13 @@ export const PrintModal = () => {
   const orderList = isBulk ? data : [data];
 
   const handlePrint = () => {
+    if (type === 'shipping_label') {
+      const orderIdsParam = orderList.map((o) => o.id || o.order_number).join(',');
+      const url = `/admin/shipments/label?orderIds=${encodeURIComponent(orderIdsParam)}`;
+      window.open(url, '_blank', 'noopener,noreferrer');
+      showToast(`Opening official Shiprocket shipping label for ${orderList.length} order(s)!`);
+      return;
+    }
     window.print();
     showToast(`Print command sent for ${type.replace('_', ' ')}!`);
   };
@@ -62,58 +69,57 @@ export const PrintModal = () => {
             const { subtotal, tax, shipping, discount, total } = calculateOrderTotal(order);
 
             if (type === 'shipping_label') {
+              const directPdfUrl = order.shipment?.labelUrl || order.labelUrl || `/admin/shipments/label?orderId=${encodeURIComponent(order.id)}`;
               return (
                 <div
                   key={order.id}
-                  className="bg-white text-slate-900 p-6 rounded-xl border-2 border-dashed border-slate-400 max-w-md mx-auto w-full font-mono text-xs shadow-lg"
+                  className="bg-white text-slate-900 p-6 rounded-2xl border border-slate-200 max-w-lg mx-auto w-full font-sans text-xs shadow-xl space-y-4"
                 >
-                  <div className="flex items-center justify-between border-b-2 border-black pb-3 mb-3">
-                    <div className="flex items-center gap-2">
-                      <img src="/logo.png" alt="Trio Enterprises" className="w-7 h-7 object-contain" />
+                  <div className="flex items-center justify-between border-b pb-3">
+                    <div className="flex items-center gap-2.5">
+                      <img src="/logo.png" alt="Trio Enterprises" className="w-8 h-8 object-contain" />
                       <div>
-                        <h4 className="font-black text-base tracking-tight">TRIO ENTERPRISES</h4>
-                        <p className="text-[9px] text-slate-600 font-sans uppercase">Ethnic Craft Guild</p>
+                        <h4 className="font-black text-sm tracking-tight text-slate-900">TRIO ENTERPRISES</h4>
+                        <p className="text-[10px] text-slate-500 uppercase font-semibold">Official Logistics Consignment</p>
                       </div>
                     </div>
                     <div className="text-right">
-                      <span className="inline-block bg-black text-white px-2 py-0.5 text-xs font-bold uppercase rounded">
-                        {order.shippingPartner} Express
+                      <span className="inline-block bg-indigo-700 text-white px-2.5 py-1 text-[11px] font-bold uppercase rounded-lg">
+                        {order.shippingPartner || order.shipment?.courierName || 'Shiprocket'} Express
                       </span>
-                      <p className="text-[10px] text-slate-600 mt-1">Prepaid / Standard</p>
                     </div>
                   </div>
 
-                  {/* Barcode Mock */}
-                  <div className="text-center my-3 bg-slate-100 p-2 rounded border border-slate-300">
-                    <div className="font-black tracking-[0.4em] text-sm">{order.trackingNumber}</div>
-                    <p className="text-[9px] text-slate-500 font-sans mt-0.5">AWB Tracking Code</p>
-                  </div>
-
-                  <div className="border-t border-b border-slate-300 py-3 my-2 space-y-1">
-                    <p className="font-bold text-slate-500 text-[10px] uppercase font-sans">Ship To:</p>
-                    <p className="font-bold text-sm text-black">{order.customer.name}</p>
-                    <p className="text-slate-700">{order.customer.address.street}</p>
-                    <p className="text-slate-700 font-semibold">{order.customer.address.city}, {order.customer.address.state} - {order.customer.address.pincode}</p>
-                    <p className="text-slate-700 font-medium">Phone: {order.customer.phone}</p>
-                  </div>
-
-                  <div className="text-[11px] pt-2 space-y-1">
-                    <div className="flex justify-between">
-                      <span className="text-slate-600">Order ID:</span>
-                      <span className="font-bold">{order.id}</span>
+                  <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-500 text-[11px] font-bold uppercase">Consignment AWB</span>
+                      <span className="font-mono font-black text-sm text-indigo-950 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200">
+                        {order.trackingNumber || order.shipment?.awb || 'Live Assigned on Print'}
+                      </span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-600">Items Count:</span>
-                      <span className="font-bold">{order.items.reduce((a, b) => a + b.quantity, 0)} Items</span>
+                    <div className="flex items-center justify-between text-slate-600 text-[11px]">
+                      <span>Order Reference:</span>
+                      <span className="font-bold text-slate-900">{order.id}</span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-600">Dispatch Date:</span>
-                      <span>{new Date(order.date).toLocaleDateString()}</span>
+                    <div className="flex items-center justify-between text-slate-600 text-[11px]">
+                      <span>Destination:</span>
+                      <span className="font-medium">{order.customer?.name} ({order.customer?.address?.city}, {order.customer?.address?.state})</span>
                     </div>
                   </div>
 
-                  <div className="border-t border-slate-300 mt-3 pt-2 text-[10px] text-slate-500 text-center font-sans">
-                    Return if undelivered to: Trio Ecart Fulfillment Center, Ring Road, Surat, Gujarat 395002
+                  <div className="pt-2">
+                    <a
+                      href={directPdfUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full py-3 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg transition-colors"
+                    >
+                      <Printer className="w-4 h-4" />
+                      <span>Open Official Shiprocket Label (PDF)</span>
+                    </a>
+                    <p className="text-[10px] text-slate-400 text-center mt-2">
+                      Renders official thermal 4x6 / A4 barcode label generated directly from Shiprocket servers.
+                    </p>
                   </div>
                 </div>
               );
