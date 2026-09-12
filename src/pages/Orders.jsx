@@ -981,7 +981,7 @@ export const Orders = () => {
                   {/* Create Shipment button if no shipment or tracking */}
                   {(!selectedOrderDetails.trackingNumber || selectedOrderDetails.shippingPartner === 'Awaiting Shipment') && (
                     <button
-                      onClick={() => handleCreateShipment(selectedOrderDetails.id)}
+                      onClick={() => handleCreateShipment(selectedOrderDetails.db_id || selectedOrderDetails.id)}
                       disabled={shipmentActionLoading}
                       className="btn-primary py-1.5 px-3 text-xs flex items-center gap-1.5"
                     >
@@ -993,7 +993,7 @@ export const Orders = () => {
                   {/* Assign AWB if shipment exists but no real AWB */}
                   {(!selectedOrderDetails.trackingNumber || selectedOrderDetails.trackingNumber.startsWith('SR-')) && (
                     <button
-                      onClick={() => handleAssignAWB(selectedOrderDetails.id)}
+                      onClick={() => handleAssignAWB(selectedOrderDetails.db_id || selectedOrderDetails.id)}
                       disabled={shipmentActionLoading}
                       className="btn-secondary py-1.5 px-3 text-xs flex items-center gap-1.5 border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/10"
                     >
@@ -1019,7 +1019,7 @@ export const Orders = () => {
                   {/* Schedule Pickup button */}
                   {selectedOrderDetails.status === 'Packed' && (
                     <button
-                      onClick={() => handleRequestPickup(selectedOrderDetails.id)}
+                      onClick={() => handleRequestPickup(selectedOrderDetails.db_id || selectedOrderDetails.id)}
                       disabled={shipmentActionLoading}
                       className="btn-primary py-1.5 px-3 text-xs flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 border-emerald-500"
                     >
