@@ -171,13 +171,13 @@ export const AdminProvider = ({ children }) => {
       try {
         setIsLoading(true);
         const [prodsRes, ordersRes, catsRes, custsRes, blogsRes, couponsRes, returnsRes] = await Promise.allSettled([
-          adminApi.getReturns(),
           adminApi.getProducts(),
           adminApi.getOrders(),
           adminApi.getCategories(),
           adminApi.getCustomers(),
           adminApi.getBlogs(),
           adminApi.getCoupons(),
+          adminApi.getReturns(),
         ]);
 
         if (!isMounted) return;

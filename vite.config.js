@@ -7,7 +7,7 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api': {
-        target: 'https://treobackend.vercel.app',
+        target: 'https://trioenterprises.in',
         changeOrigin: true,
       },
     },
