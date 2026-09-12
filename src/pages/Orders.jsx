@@ -236,6 +236,12 @@ export const Orders = () => {
   const filteredOrders = useMemo(() => {
     return orders
       .filter((order) => {
+        // Strictly exclude unpaid checkout attempts / failed payments
+        const s = (order.raw_status || order.status || '').toLowerCase();
+        if (['pending_payment', 'pending payment', 'payment_failed', 'payment failed', 'draft'].includes(s)) {
+          return false;
+        }
+
         // Tab filter
         if (activeTab !== 'All' && order.status !== activeTab) return false;
 

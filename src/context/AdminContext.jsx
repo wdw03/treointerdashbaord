@@ -35,6 +35,15 @@ export const formatDashboardCoupon = (c) => ({
   isActive: Boolean(c.isActive ?? c.status === 'Active'),
 });
 
+
+export const filterValidOrders = (rawOrders) => {
+  if (!Array.isArray(rawOrders)) return [];
+  return rawOrders.filter((ord) => {
+    const s = (ord.raw_status || ord.status || '').toLowerCase();
+    return !['pending_payment', 'pending payment', 'payment_failed', 'payment failed', 'draft'].includes(s);
+  });
+};
+
 const AdminContext = createContext();
 
 export const AdminProvider = ({ children }) => {
@@ -208,7 +217,7 @@ export const AdminProvider = ({ children }) => {
         }
         if (ordersRes.status === 'fulfilled' && Array.isArray(ordersRes.value?.orders)) {
           const liveOrders = ordersRes.value.orders;
-          setOrders(liveOrders);
+          setOrders(filterValidOrders(liveOrders));
           setPayments(liveOrders.map((o) => ({
             id: `PAY-${o.id}`,
             orderId: o.order_number || o.id,
@@ -311,7 +320,7 @@ export const AdminProvider = ({ children }) => {
         syncCount++;
       }
       if (ordersRes.status === 'fulfilled' && Array.isArray(ordersRes.value?.orders)) {
-        setOrders(ordersRes.value.orders);
+        setOrders(filterValidOrders(ordersRes.value.orders));
         syncCount++;
       }
       if (catsRes.status === 'fulfilled' && Array.isArray(catsRes.value?.categories)) {
@@ -448,7 +457,7 @@ export const AdminProvider = ({ children }) => {
     try {
       const res = await adminApi.getOrders();
       if (res && Array.isArray(res.orders)) {
-        setOrders(res.orders);
+        setOrders(filterValidOrders(res.orders));
         return res.orders;
       }
     } catch (err) {
