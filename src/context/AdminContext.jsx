@@ -5,6 +5,7 @@ import { calculateOrderTotal } from '../data/orders.js';
 import { initialCoupons } from '../data/coupons.js';
 import { cmsService } from '../services/cmsService.js';
 import { adminApi } from '../services/api.js';
+import { supabase } from '../services/supabase.js';
 import {
   initialHeroSlides,
   initialHomeSections,
@@ -263,6 +264,34 @@ export const AdminProvider = ({ children }) => {
     return () => { isMounted = false; };
   }, []);
 
+  // ── Realtime subscription for live admin order & shipment updates ──
+  useEffect(() => {
+    const channel = supabase
+      .channel('admin-live-orders')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'orders' },
+        (payload) => {
+          console.log('[Admin Realtime] Orders table change:', payload.eventType);
+          refreshOrders();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'shipments' },
+        () => {
+          console.log('[Admin Realtime] Shipments table change');
+          refreshOrders();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+
   // Manual trigger to refetch live API data & show sync indicator
   const refreshData = async (customDuration = 600) => {
     setIsRefreshing(true);
@@ -426,17 +455,19 @@ export const AdminProvider = ({ children }) => {
       console.warn('refreshOrders failed:', err);
     }
   };
-  const updateOrderStatus = async (orderId, newStatus) => {
+  const updateOrderStatus = async (orderId, newStatus, details = {}) => {
     setOrders((prev) =>
       prev.map((ord) => (ord.id === orderId || ord.order_number === orderId ? { ...ord, status: newStatus } : ord))
     );
 
     try {
-      await adminApi.updateOrderStatus(orderId, newStatus);
+      const payload = typeof details === 'string' ? { cancelReason: details } : (details || {});
+      await adminApi.updateOrderStatus(orderId, newStatus, payload);
       showToast(`Order ${orderId} status changed to ${newStatus}`);
       await refreshOrders();
     } catch (err) {
-      showToast(`Order ${orderId} status changed to ${newStatus}`);
+      showToast(err.message || `Order ${orderId} status update failed`, 'error');
+      await refreshOrders();
     }
   };
 

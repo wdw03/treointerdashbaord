@@ -84,6 +84,10 @@ export const adminApi = {
   },
 
   // Orders
+  getOrder: async (orderId) => {
+    return request(`/admin/orders/${orderId}`);
+  },
+
   getOrders: async (params = {}) => {
     const query = new URLSearchParams(params).toString();
     return request(`/admin/orders${query ? `?${query}` : ''}`);

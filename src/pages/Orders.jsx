@@ -54,6 +54,42 @@ export const Orders = () => {
   const [sortBy, setSortBy] = useState('date_desc');
   const [shipmentActionLoading, setShipmentActionLoading] = useState(false);
   const [actionMessage, setActionMessage] = useState('');
+  const [cancelModal, setCancelModal] = useState({ open: false, orderId: null, reason: '' });
+  const [orderAuditHistory, setOrderAuditHistory] = useState([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+
+  // Fetch status history audit log when order modal opens
+  useEffect(() => {
+    if (!selectedOrderDetails) {
+      setOrderAuditHistory([]);
+      return;
+    }
+    let active = true;
+    setLoadingHistory(true);
+    const fetchAudit = async () => {
+      try {
+        const orderId = selectedOrderDetails.db_id || selectedOrderDetails.id;
+        const res = await adminApi.getOrder(orderId);
+        if (active && Array.isArray(res?.statusHistory)) {
+          setOrderAuditHistory(res.statusHistory);
+        }
+      } catch (err) {
+        console.warn('Failed to load status history:', err);
+      } finally {
+        if (active) setLoadingHistory(false);
+      }
+    };
+    fetchAudit();
+    return () => { active = false; };
+  }, [selectedOrderDetails?.id, selectedOrderDetails?.status]);
+
+  const handleStatusChange = (orderId, newStatus) => {
+    if (newStatus === 'Cancelled') {
+      setCancelModal({ open: true, orderId, reason: 'Order cancelled by store administrator' });
+      return;
+    }
+    updateOrderStatus(orderId, newStatus);
+  };
 
   // Keep selectedOrderDetails in sync when orders update
   useEffect(() => {
@@ -617,7 +653,7 @@ export const Orders = () => {
                       <td className="table-td px-3.5 py-3">
                         <select
                           value={order.status}
-                          onChange={(e) => updateOrderStatus(order.id, e.target.value)}
+                          onChange={(e) => handleStatusChange(order.id, e.target.value)}
                           className="admin-select text-xs py-1 px-2 font-medium"
                           onClick={(e) => e.stopPropagation()}
                         >
@@ -854,28 +890,85 @@ export const Orders = () => {
               })()}
               {/* Visual Order Timeline */}
               <div className="bg-slate-950 p-3 sm:p-4 rounded-xl border border-slate-800 overflow-x-auto">
-                <h4 className="text-[11px] sm:text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Shipment &amp; Delivery Timeline</h4>
-                <div className="grid grid-cols-5 gap-1 sm:gap-2 text-center text-xs min-w-[280px]">
-                  {['Placed', 'Processing', 'Packed', 'Shipped', 'Delivered'].map((step, idx) => {
-                    const isPassed =
-                      (step === 'Placed') ||
-                      (step === 'Processing' && ['Processing', 'Packed', 'Shipped', 'Out for Delivery', 'Delivered'].includes(selectedOrderDetails.status)) ||
-                      (step === 'Packed' && ['Packed', 'Shipped', 'Out for Delivery', 'Delivered'].includes(selectedOrderDetails.status)) ||
-                      (step === 'Shipped' && ['Shipped', 'Out for Delivery', 'Delivered'].includes(selectedOrderDetails.status)) ||
-                      (step === 'Delivered' && selectedOrderDetails.status === 'Delivered');
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-[11px] sm:text-xs font-bold uppercase tracking-wider text-slate-400">Order &amp; Logistics Lifecycle</h4>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${selectedOrderDetails.status === 'Cancelled' ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'}`}>
+                    Status: {selectedOrderDetails.status}
+                  </span>
+                </div>
+                {selectedOrderDetails.status === 'Cancelled' ? (
+                  <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl text-center">
+                    <p className="text-xs text-rose-300 font-bold flex items-center justify-center gap-1.5">
+                      <XCircle className="w-4 h-4 text-rose-400" /> Order Cancelled
+                    </p>
+                    <p className="text-[11px] text-rose-200/80 mt-1">
+                      {selectedOrderDetails.financials?.paymentStatus === 'refunded' ? 'Payment refunded & inventory restored.' : 'Order closed & inventory restored.'}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-5 gap-1 sm:gap-2 text-center text-xs min-w-[280px]">
+                    {['Placed', 'Processing', 'Packed', 'Shipped', 'Delivered'].map((step, idx) => {
+                      const isPassed =
+                        (step === 'Placed') ||
+                        (step === 'Processing' && ['Processing', 'Packed', 'Shipped', 'In Transit', 'Out for Delivery', 'Delivered'].includes(selectedOrderDetails.status)) ||
+                        (step === 'Packed' && ['Packed', 'Shipped', 'In Transit', 'Out for Delivery', 'Delivered'].includes(selectedOrderDetails.status)) ||
+                        (step === 'Shipped' && ['Shipped', 'In Transit', 'Out for Delivery', 'Delivered'].includes(selectedOrderDetails.status)) ||
+                        (step === 'Delivered' && selectedOrderDetails.status === 'Delivered');
 
-                    return (
-                      <div key={step} className="flex flex-col items-center">
-                        <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center font-bold text-xs mb-1 ${isPassed ? 'bg-emerald-500 text-slate-950' : 'bg-slate-800 text-slate-500'}`}>
-                          {isPassed ? <CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> : idx + 1}
+                      return (
+                        <div key={step} className="flex flex-col items-center">
+                          <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center font-bold text-xs mb-1 ${isPassed ? 'bg-emerald-500 text-slate-950' : 'bg-slate-800 text-slate-500'}`}>
+                            {isPassed ? <CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> : idx + 1}
+                          </div>
+                          <span className={`font-semibold text-[9px] sm:text-[11px] truncate w-full ${isPassed ? 'text-slate-200' : 'text-slate-500'}`}>
+                            {step}
+                          </span>
                         </div>
-                        <span className={`font-semibold text-[9px] sm:text-[11px] truncate w-full ${isPassed ? 'text-slate-200' : 'text-slate-500'}`}>
-                          {step}
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Status & Lifecycle Audit Trail */}
+              <div className="bg-slate-950 p-3.5 sm:p-4 rounded-xl border border-slate-800 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-[11px] sm:text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5 text-indigo-400" />
+                    Lifecycle Audit Trail &amp; History ({orderAuditHistory.length})
+                  </h4>
+                  {loadingHistory && <span className="text-[10px] text-slate-500 animate-pulse">Refreshing audit...</span>}
+                </div>
+
+                {orderAuditHistory.length === 0 ? (
+                  <p className="text-[11px] text-slate-500 italic py-1">Initial order placement recorded. No subsequent transitions yet.</p>
+                ) : (
+                  <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                    {orderAuditHistory.map((item) => (
+                      <div key={item.id} className="p-2 rounded-lg bg-slate-900/80 border border-slate-800/80 flex items-start justify-between gap-2 text-xs">
+                        <div className="space-y-0.5">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="font-semibold text-slate-200 capitalize">
+                              {item.from_status || 'Initial'} &rarr; <strong className="text-indigo-300">{item.to_status}</strong>
+                            </span>
+                            <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${
+                              item.source === 'customer' ? 'bg-rose-500/20 text-rose-300' :
+                              item.source === 'shiprocket_webhook' ? 'bg-cyan-500/20 text-cyan-300' :
+                              item.source === 'admin' ? 'bg-indigo-500/20 text-indigo-300' :
+                              'bg-slate-700 text-slate-300'
+                            }`}>
+                              {item.source}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-400">{item.reason || 'Status transition logged'}</p>
+                        </div>
+                        <span className="text-[10px] text-slate-500 shrink-0">
+                          {new Date(item.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}
                         </span>
                       </div>
-                    );
-                  })}
-                </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Order Items Table */}
@@ -1014,6 +1107,19 @@ export const Orders = () => {
                     >
                       <RotateCcw className="w-3.5 h-3.5" />
                       {shipmentActionLoading ? 'Assigning...' : 'Assign AWB'}
+                    </button>
+                  )}
+
+                  {/* Admin Cancel Order button */}
+                  {!['Cancelled', 'Delivered', 'Returned', 'Refunded'].includes(selectedOrderDetails.status) && (
+                    <button
+                      onClick={() => setCancelModal({ open: true, orderId: selectedOrderDetails.id, reason: '' })}
+                      disabled={shipmentActionLoading}
+                      className="btn-secondary py-1.5 px-3 text-xs flex items-center gap-1.5 border-rose-500/40 text-rose-400 hover:bg-rose-500/10"
+                      title="Cancel order, refund online payment & restore stock"
+                    >
+                      <XCircle className="w-3.5 h-3.5 text-rose-400" />
+                      Cancel Order
                     </button>
                   )}
 
