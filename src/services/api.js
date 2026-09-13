@@ -264,6 +264,13 @@ export const adminApi = {
     });
   },
 
+  cancelShipment: async (orderId, reason = 'Cancelled by store administrator') => {
+    return request('/admin/shipments/cancel', {
+      method: 'POST',
+      body: JSON.stringify({ orderId, reason }),
+    });
+  },
+
   requestPickup: async (orderId) => {
     return request('/admin/shipments/pickup', {
       method: 'POST',

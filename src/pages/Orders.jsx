@@ -85,6 +85,16 @@ export const Orders = () => {
 
   const handleStatusChange = (orderId, newStatus) => {
     if (newStatus === 'Cancelled') {
+      const ord = orders.find((o) => o.id === orderId || o.db_id === orderId);
+      const hasActiveShipment = ord && (
+        (ord.shipment && ord.shipment.status && ord.shipment.status !== 'cancelled' && ord.shipment.status !== 'not_created') ||
+        (ord.shiprocketOrderId && ord.shipmentStatus !== 'cancelled') ||
+        (ord.trackingNumber && !ord.trackingNumber.startsWith('SR-') && ord.shipmentStatus !== 'cancelled')
+      );
+      if (hasActiveShipment) {
+        showToast('Active shipment exists in Shiprocket for this order. Please cancel the shipment first before cancelling the order.');
+        return;
+      }
       setCancelModal({ open: true, orderId, reason: 'Order cancelled by store administrator' });
       return;
     }
@@ -158,11 +168,38 @@ export const Orders = () => {
     }
   };
 
+  const handleCancelShipment = async (orderId) => {
+    if (!window.confirm('Are you sure you want to cancel the shipment in Shiprocket? Courier AWB will be cancelled.')) return;
+    setShipmentActionLoading(true);
+    setActionMessage('Cancelling shipment in Shiprocket & database...');
+    try {
+      const res = await adminApi.cancelShipment(orderId, 'Cancelled by store administrator via dashboard');
+      if (res && res.success) {
+        showToast('Shipment cancelled in Shiprocket & database successfully! You can now cancel the order.');
+        if (refreshOrders) await refreshOrders();
+      } else {
+        showToast(res?.error || 'Failed to cancel shipment');
+      }
+    } catch (err) {
+      showToast(err.message || 'Shipment cancellation failed');
+    } finally {
+      setShipmentActionLoading(false);
+      setActionMessage('');
+    }
+  };
+
   const handlePrintShiprocketLabel = async (order) => {
+    if (!order) return;
+    const hasAwb = order.trackingNumber && !order.trackingNumber.startsWith('SR-') && order.trackingNumber.length > 5;
+    if (!hasAwb) {
+      showToast('Shipment not created or AWB not assigned yet! Please create shipment and assign AWB before generating label.');
+      return;
+    }
+
     setShipmentActionLoading(true);
     setActionMessage('Generating official Shiprocket shipping label with AWB...');
     try {
-      const res = await adminApi.getShiprocketLabel(order.id);
+      const res = await adminApi.getShiprocketLabel(order.db_id || order.id);
       if (res && res.labelUrl) {
         window.open(res.labelUrl, '_blank', 'noopener,noreferrer');
         showToast(`Official Shiprocket shipping label opened! (AWB: ${res.awbNumbers?.[0] || res.awb || order.trackingNumber || ''})`);
@@ -303,6 +340,14 @@ export const Orders = () => {
   const handleBulkPrintShippingLabels = async () => {
     if (selectedOrders.length === 0) {
       showToast('Please select at least one order to print labels');
+      return;
+    }
+    const withoutAwb = selectedOrders.filter((id) => {
+      const o = orders.find((x) => x.id === id || x.db_id === id);
+      return !o?.trackingNumber || o.trackingNumber.startsWith('SR-');
+    });
+    if (withoutAwb.length > 0) {
+      showToast(`Cannot generate labels: ${withoutAwb.length} selected orders do not have an AWB assigned yet. Please create shipment and assign AWB first.`);
       return;
     }
     setShipmentActionLoading(true);
@@ -1132,10 +1177,42 @@ export const Orders = () => {
                     </button>
                   )}
 
+                  {/* Cancel Shipment button — show when active shipment exists */}
+                  {selectedOrderDetails.status !== 'Cancelled' &&
+                   ((selectedOrderDetails.shipment && selectedOrderDetails.shipment.status && selectedOrderDetails.shipment.status !== 'cancelled' && selectedOrderDetails.shipment.status !== 'not_created') ||
+                    (selectedOrderDetails.shiprocketOrderId && selectedOrderDetails.shipmentStatus !== 'cancelled') ||
+                    (selectedOrderDetails.trackingNumber && !selectedOrderDetails.trackingNumber.startsWith('SR-') && selectedOrderDetails.shipmentStatus !== 'cancelled')) && (
+                    <button
+                      onClick={() => handleCancelShipment(selectedOrderDetails.db_id || selectedOrderDetails.id)}
+                      disabled={shipmentActionLoading}
+                      className="btn-secondary py-1.5 px-3 text-xs flex items-center gap-1.5 border-amber-500/40 text-amber-300 hover:bg-amber-500/10"
+                      title="Cancel shipment in Shiprocket and release courier AWB"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5 text-amber-400" />
+                      {shipmentActionLoading ? 'Cancelling...' : 'Cancel Shipment'}
+                    </button>
+                  )}
+
                   {/* Admin Cancel Order button — strictly before delivered/returned */}
                   {!['Cancelled', 'Delivered', 'Returned', 'Refunded'].includes(selectedOrderDetails.status) && (
                     <button
-                      onClick={() => setCancelModal({ open: true, orderId: selectedOrderDetails.id, reason: '' })}
+                      onClick={() => {
+                        const hasActiveShipment = 
+                          (selectedOrderDetails.shipment && selectedOrderDetails.shipment.status && selectedOrderDetails.shipment.status !== 'cancelled' && selectedOrderDetails.shipment.status !== 'not_created') ||
+                          (selectedOrderDetails.shiprocketOrderId && selectedOrderDetails.shipmentStatus !== 'cancelled') ||
+                          (selectedOrderDetails.trackingNumber && !selectedOrderDetails.trackingNumber.startsWith('SR-') && selectedOrderDetails.shipmentStatus !== 'cancelled');
+
+                        if (hasActiveShipment) {
+                          showToast('Active shipment exists in Shiprocket for this order. Please cancel the shipment first before cancelling the order.');
+                          return;
+                        }
+
+                        setCancelModal({
+                          open: true,
+                          orderId: selectedOrderDetails.id,
+                          reason: 'Order cancelled by store administrator',
+                        });
+                      }}
                       disabled={shipmentActionLoading}
                       className="btn-secondary py-1.5 px-3 text-xs flex items-center gap-1.5 border-rose-500/40 text-rose-400 hover:bg-rose-500/10"
                       title="Cancel order, refund online payment & restore stock"
@@ -1210,6 +1287,82 @@ export const Orders = () => {
           </div>
         </div>
       )}
-    </div>
+
+      {/* CANCEL ORDER CONFIRMATION MODAL */}
+      {cancelModal.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-sm no-print">
+          <div className="bg-slate-900 border border-slate-700/80 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-scaleIn">
+            <div className="px-5 py-4 border-b border-slate-800 flex items-center justify-between bg-rose-500/10">
+              <div className="flex items-center gap-2">
+                <XCircle className="w-5 h-5 text-rose-400" />
+                <h3 className="font-bold text-base text-white">Cancel Order</h3>
+              </div>
+              <button
+                onClick={() => setCancelModal({ open: false, orderId: null, reason: '' })}
+                className="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-5 space-y-4">
+              <p className="text-sm text-slate-300">
+                Are you sure you want to cancel order <span className="font-mono font-bold text-white">{cancelModal.orderId}</span>?
+              </p>
+              <div className="text-xs text-amber-400/90 bg-amber-500/10 border border-amber-500/20 rounded-lg p-3 space-y-1">
+                <p className="font-semibold">⚠️ Cancellation Actions:</p>
+                <ul className="list-disc pl-4 space-y-0.5 text-slate-300">
+                  <li>Restores item stock in database</li>
+                  <li>Initiates automatic Razorpay refund for online payments</li>
+                  <li>Marks order status as Cancelled</li>
+                </ul>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 mb-1.5">
+                  Cancellation Reason:
+                </label>
+                <select
+                  value={cancelModal.reason}
+                  onChange={(e) => setCancelModal(prev => ({ ...prev, reason: e.target.value }))}
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-rose-500"
+                >
+                  <option value="Order cancelled by store administrator">Order cancelled by store administrator</option>
+                  <option value="Customer requested cancellation">Customer requested cancellation</option>
+                  <option value="Item out of stock / defect in craftsmanship">Item out of stock / defect in craftsmanship</option>
+                  <option value="Suspected fraudulent / test order">Suspected fraudulent / test order</option>
+                  <option value="Customer unreachable for address confirmation">Customer unreachable for address confirmation</option>
+                </select>
+              </div>
+            </div>
+            <div className="px-5 py-3.5 border-t border-slate-800 bg-slate-950/60 flex items-center justify-end gap-2.5">
+              <button
+                onClick={() => setCancelModal({ open: false, orderId: null, reason: '' })}
+                className="btn-secondary py-1.5 px-3 text-xs"
+              >
+                Keep Order
+              </button>
+              <button
+                onClick={async () => {
+                  const targetId = cancelModal.orderId;
+                  const reason = cancelModal.reason || 'Order cancelled by store administrator';
+                  setCancelModal({ open: false, orderId: null, reason: '' });
+                  try {
+                    await updateOrderStatus(targetId, 'Cancelled', { cancelReason: reason });
+                    showToast('Order cancelled successfully. Stock restored and refund initiated.');
+                    if (refreshOrders) await refreshOrders();
+                  } catch (err) {
+                    showToast(err.message || 'Failed to cancel order');
+                  }
+                }}
+                className="py-1.5 px-4 text-xs font-semibold bg-rose-600 hover:bg-rose-500 text-white rounded-lg transition-colors flex items-center gap-1.5"
+              >
+                <XCircle className="w-4 h-4" />
+                Confirm Cancellation
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+          </div>
   );
 };
