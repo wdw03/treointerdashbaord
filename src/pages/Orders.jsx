@@ -1092,20 +1092,36 @@ export const Orders = () => {
 
                 {/* Logistics Action Buttons */}
                 <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-slate-800/80">
-                  {/* Create Shipment button if no shipment or tracking */}
-                  {(!selectedOrderDetails.trackingNumber || selectedOrderDetails.shippingPartner === 'Awaiting Shipment') && (
+                  {/* Confirm Order button — for New / Processing orders */}
+                  {['Processing', 'New'].includes(selectedOrderDetails.status) && (
+                    <button
+                      onClick={async () => {
+                        await updateOrderStatus(selectedOrderDetails.id, 'Confirmed');
+                      }}
+                      disabled={shipmentActionLoading}
+                      className="btn-primary py-1.5 px-3 text-xs flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 border-emerald-500 text-white"
+                      title="Confirm this order"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      Confirm Order
+                    </button>
+                  )}
+
+                  {/* Create Shipment button if no shipment or tracking AND order is NOT cancelled */}
+                  {selectedOrderDetails.status !== 'Cancelled' && (!selectedOrderDetails.trackingNumber || selectedOrderDetails.shippingPartner === 'Awaiting Shipment') && (
                     <button
                       onClick={() => handleCreateShipment(selectedOrderDetails.db_id || selectedOrderDetails.id)}
                       disabled={shipmentActionLoading}
                       className="btn-primary py-1.5 px-3 text-xs flex items-center gap-1.5"
+                      title="Send order to Shiprocket and generate AWB"
                     >
                       <Package className="w-3.5 h-3.5" />
                       {shipmentActionLoading ? 'Creating...' : 'Create Shipment'}
                     </button>
                   )}
 
-                  {/* Assign AWB if shipment exists but no real AWB */}
-                  {(!selectedOrderDetails.trackingNumber || selectedOrderDetails.trackingNumber.startsWith('SR-')) && (
+                  {/* Assign AWB if shipment exists but no real AWB AND order is NOT cancelled */}
+                  {selectedOrderDetails.status !== 'Cancelled' && (!selectedOrderDetails.trackingNumber || selectedOrderDetails.trackingNumber.startsWith('SR-')) && (
                     <button
                       onClick={() => handleAssignAWB(selectedOrderDetails.db_id || selectedOrderDetails.id)}
                       disabled={shipmentActionLoading}
@@ -1116,7 +1132,7 @@ export const Orders = () => {
                     </button>
                   )}
 
-                  {/* Admin Cancel Order button */}
+                  {/* Admin Cancel Order button — strictly before delivered/returned */}
                   {!['Cancelled', 'Delivered', 'Returned', 'Refunded'].includes(selectedOrderDetails.status) && (
                     <button
                       onClick={() => setCancelModal({ open: true, orderId: selectedOrderDetails.id, reason: '' })}
@@ -1129,8 +1145,8 @@ export const Orders = () => {
                     </button>
                   )}
 
-                  {/* Mark as Packed button */}
-                  {['Confirmed', 'Processing', 'New'].includes(selectedOrderDetails.status) && (
+                  {/* Mark as Packed button — only if confirmed/processing and NOT cancelled */}
+                  {selectedOrderDetails.status !== 'Cancelled' && ['Confirmed', 'Processing', 'New'].includes(selectedOrderDetails.status) && (
                     <button
                       onClick={async () => {
                         await updateOrderStatus(selectedOrderDetails.id, 'Packed');
@@ -1143,8 +1159,8 @@ export const Orders = () => {
                     </button>
                   )}
 
-                  {/* Schedule Pickup button */}
-                  {selectedOrderDetails.status === 'Packed' && (
+                  {/* Schedule Pickup button — only if packed and NOT cancelled */}
+                  {selectedOrderDetails.status === 'Packed' && selectedOrderDetails.status !== 'Cancelled' && (
                     <button
                       onClick={() => handleRequestPickup(selectedOrderDetails.db_id || selectedOrderDetails.id)}
                       disabled={shipmentActionLoading}
@@ -1155,16 +1171,18 @@ export const Orders = () => {
                     </button>
                   )}
 
-                  {/* Print Official Shiprocket Label (PDF) */}
-                  <button
-                    onClick={() => handlePrintShiprocketLabel(selectedOrderDetails)}
-                    disabled={shipmentActionLoading}
-                    className="btn-secondary py-1.5 px-3 text-xs flex items-center gap-1.5"
-                    title="Fetch and print official Shiprocket carrier barcode label PDF"
-                  >
-                    <Printer className="w-3.5 h-3.5" />
-                    Shiprocket Label (PDF)
-                  </button>
+                  {/* Print Official Shiprocket Label (PDF) — only if AWB assigned and NOT cancelled */}
+                  {selectedOrderDetails.status !== 'Cancelled' && selectedOrderDetails.trackingNumber && !selectedOrderDetails.trackingNumber.startsWith('SR-') && (
+                    <button
+                      onClick={() => handlePrintShiprocketLabel(selectedOrderDetails)}
+                      disabled={shipmentActionLoading}
+                      className="btn-secondary py-1.5 px-3 text-xs flex items-center gap-1.5"
+                      title="Fetch and print official Shiprocket carrier barcode label PDF"
+                    >
+                      <Printer className="w-3.5 h-3.5" />
+                      Shiprocket Label (PDF)
+                    </button>
+                  )}
 
                   {/* Re-sync with backend */}
                   <button
