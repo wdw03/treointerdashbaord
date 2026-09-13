@@ -54,7 +54,7 @@ export const Orders = () => {
   const [sortBy, setSortBy] = useState('date_desc');
   const [shipmentActionLoading, setShipmentActionLoading] = useState(false);
   const [actionMessage, setActionMessage] = useState('');
-  const [cancelModal, setCancelModal] = useState({ open: false, orderId: null, reason: '' });
+  const [cancelModal, setCancelModal] = useState({ open: false, orderId: null, orderIds: [], reason: '' });
   const [orderAuditHistory, setOrderAuditHistory] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
 
@@ -314,6 +314,57 @@ export const Orders = () => {
     );
   };
 
+  // Computed helpers for bulk actions on selected orders
+  const selectedOrderObjects = useMemo(() => {
+    return orders.filter((o) => selectedOrders.includes(o.id) || selectedOrders.includes(o.db_id));
+  }, [orders, selectedOrders]);
+
+  // Orders eligible for bulk shipment creation (not cancelled/delivered, no active shipment yet)
+  const eligibleForShipment = useMemo(() => {
+    return selectedOrderObjects.filter((o) => {
+      if (['Cancelled', 'Delivered', 'Returned', 'Refunded'].includes(o.status)) return false;
+      const hasActiveShipment =
+        (o.shipment && o.shipment.status && o.shipment.status !== 'cancelled' && o.shipment.status !== 'not_created') ||
+        (o.shiprocketOrderId && o.shipmentStatus !== 'cancelled') ||
+        (o.trackingNumber && !o.trackingNumber.startsWith('SR-') && o.shipmentStatus !== 'cancelled');
+      return !hasActiveShipment;
+    });
+  }, [selectedOrderObjects]);
+
+  // Orders eligible for bulk shipment cancellation (active Shiprocket shipment exists)
+  const eligibleForCancelShipment = useMemo(() => {
+    return selectedOrderObjects.filter((o) => {
+      if (o.status === 'Cancelled') return false;
+      const hasActiveShipment =
+        (o.shipment && o.shipment.status && o.shipment.status !== 'cancelled' && o.shipment.status !== 'not_created') ||
+        (o.shiprocketOrderId && o.shipmentStatus !== 'cancelled') ||
+        (o.trackingNumber && o.shipmentStatus !== 'cancelled');
+      return Boolean(hasActiveShipment);
+    });
+  }, [selectedOrderObjects]);
+
+  // Orders eligible for bulk order cancellation (not already cancelled, delivered, or returned)
+  const eligibleForCancelOrder = useMemo(() => {
+    return selectedOrderObjects.filter((o) => !['Cancelled', 'Delivered', 'Returned', 'Refunded'].includes(o.status));
+  }, [selectedOrderObjects]);
+
+  // Orders not ready for Shiprocket label printing:
+  // Must have active shipment created and real AWB assigned
+  const unreadyForLabelOrders = useMemo(() => {
+    return selectedOrderObjects.filter((o) => {
+      if (o.status === 'Cancelled') return true;
+      const hasRealAwb = o.trackingNumber && !o.trackingNumber.startsWith('SR-') && o.trackingNumber.length > 5;
+      const hasShipment =
+        (o.shipment && o.shipment.shiprocket_shipment_id) ||
+        o.shiprocketOrderId ||
+        hasRealAwb;
+      return !hasRealAwb || !hasShipment;
+    });
+  }, [selectedOrderObjects]);
+
+  // Bulk label is strictly non-clickable if NO orders selected OR if ANY selected order lacks created shipment / AWB
+  const isBulkLabelDisabled = selectedOrders.length === 0 || unreadyForLabelOrders.length > 0;
+
   // Bulk actions
   const handleBulkPrintInvoices = () => {
     const list = orders.filter((o) => selectedOrders.includes(o.id));
@@ -332,12 +383,8 @@ export const Orders = () => {
       showToast('Please select at least one order to print labels');
       return;
     }
-    const withoutAwb = selectedOrders.filter((id) => {
-      const o = orders.find((x) => x.id === id || x.db_id === id);
-      return !o?.trackingNumber || o.trackingNumber.startsWith('SR-');
-    });
-    if (withoutAwb.length > 0) {
-      showToast(`Cannot generate labels: ${withoutAwb.length} selected orders do not have an AWB assigned yet. Please create shipment and assign AWB first.`);
+    if (isBulkLabelDisabled) {
+      showToast(`Cannot generate labels: ${unreadyForLabelOrders.length} selected orders do not have shipment created or AWB assigned yet. Please create shipments first.`);
       return;
     }
     setShipmentActionLoading(true);
@@ -358,8 +405,115 @@ export const Orders = () => {
     }
   };
 
+  // Bulk create Shiprocket shipments
+  const handleBulkCreateShipments = async () => {
+    if (eligibleForShipment.length === 0) {
+      showToast('No eligible orders selected for shipment creation (must not be cancelled and not shipped yet).');
+      return;
+    }
+
+    if (!window.confirm(`Create Shiprocket shipments for ${eligibleForShipment.length} selected orders?`)) {
+      return;
+    }
+
+    setShipmentActionLoading(true);
+    let successCount = 0;
+    let failCount = 0;
+
+    for (let i = 0; i < eligibleForShipment.length; i++) {
+      const ord = eligibleForShipment[i];
+      const targetId = ord.db_id || ord.id;
+      setActionMessage(`Creating Shiprocket shipment ${i + 1} of ${eligibleForShipment.length} (${ord.id})...`);
+      try {
+        const res = await adminApi.createShipment(targetId);
+        if (res && res.success) {
+          successCount++;
+        } else {
+          failCount++;
+        }
+      } catch (err) {
+        failCount++;
+        console.warn(`Shipment creation failed for ${ord.id}:`, err);
+      }
+    }
+
+    setShipmentActionLoading(false);
+    setActionMessage('');
+
+    if (refreshOrders) await refreshOrders();
+
+    if (successCount > 0) {
+      showToast(`Created Shiprocket shipments for ${successCount} orders!${failCount > 0 ? ` (${failCount} failed)` : ''}`, 'success');
+    } else {
+      showToast(`Failed to create shipments (${failCount} failed)`, 'error');
+    }
+  };
+
+  // Bulk cancel Shiprocket shipments
+  const handleBulkCancelShipments = async () => {
+    if (eligibleForCancelShipment.length === 0) {
+      showToast('No selected orders have active Shiprocket shipments to cancel.');
+      return;
+    }
+
+    if (!window.confirm(`Are you sure you want to cancel Shiprocket shipments for ${eligibleForCancelShipment.length} selected orders? Courier AWBs will be cancelled.`)) {
+      return;
+    }
+
+    setShipmentActionLoading(true);
+    let successCount = 0;
+    let failCount = 0;
+
+    for (let i = 0; i < eligibleForCancelShipment.length; i++) {
+      const ord = eligibleForCancelShipment[i];
+      const targetId = ord.db_id || ord.id;
+      setActionMessage(`Cancelling shipment ${i + 1} of ${eligibleForCancelShipment.length} (${ord.id})...`);
+      try {
+        const res = await adminApi.cancelShipment(targetId, 'Bulk shipment cancellation by store administrator');
+        if (res && res.success) {
+          successCount++;
+        } else {
+          failCount++;
+        }
+      } catch (err) {
+        failCount++;
+        console.warn(`Shipment cancellation failed for ${ord.id}:`, err);
+      }
+    }
+
+    setShipmentActionLoading(false);
+    setActionMessage('');
+
+    if (refreshOrders) await refreshOrders();
+
+    if (successCount > 0) {
+      showToast(`Cancelled Shiprocket shipments for ${successCount} orders!${failCount > 0 ? ` (${failCount} failed)` : ''}`, 'success');
+    } else {
+      showToast(`Failed to cancel shipments (${failCount} failed)`, 'error');
+    }
+  };
+
+  // Open Bulk Cancel Modal
+  const handleOpenBulkCancelModal = () => {
+    if (eligibleForCancelOrder.length === 0) {
+      showToast('None of the selected orders can be cancelled (already cancelled or delivered).');
+      return;
+    }
+
+    setCancelModal({
+      open: true,
+      orderId: null,
+      orderIds: eligibleForCancelOrder.map((o) => o.id),
+      reason: 'Order cancelled by store administrator',
+    });
+  };
+
   const handleBulkStatusChange = (newStatus) => {
     if (selectedOrders.length === 0) return;
+    if (newStatus === 'Cancelled') {
+      handleOpenBulkCancelModal();
+      return;
+    }
     bulkUpdateOrderStatus(selectedOrders, newStatus);
     setSelectedOrders([]);
   };
@@ -377,19 +531,98 @@ export const Orders = () => {
 
         {/* Bulk Action Bar if items selected */}
         {selectedOrders.length > 0 && (
-          <div className="flex flex-wrap items-center gap-2 bg-indigo-950/80 border border-indigo-500/40 p-2 sm:px-3.5 sm:py-2 rounded-xl text-xs text-slate-200 animate-fadeIn w-full sm:w-auto">
-            <span className="font-bold text-indigo-400 text-xs shrink-0">{selectedOrders.length} selected</span>
-            <div className="h-4 w-px bg-slate-700 mx-1 hidden sm:block" />
+          <div className="flex flex-wrap items-center gap-2 bg-indigo-950/90 border border-indigo-500/40 p-2 sm:px-3 sm:py-2 rounded-xl text-xs text-slate-200 animate-fadeIn w-full sm:w-auto shadow-lg shadow-black/40">
+            <span className="font-bold text-indigo-400 text-xs shrink-0 flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-indigo-400 animate-pulse" />
+              {selectedOrders.length} selected
+            </span>
+            <div className="h-4 w-px bg-slate-700 mx-0.5 hidden sm:block" />
 
             <div className="flex items-center gap-1.5 flex-wrap flex-1 sm:flex-initial">
+              {/* Bulk Send to Shipping / Create Shipments */}
+              <button
+                type="button"
+                onClick={handleBulkCreateShipments}
+                disabled={shipmentActionLoading || eligibleForShipment.length === 0}
+                className={`py-1 px-2.5 text-[11px] sm:text-xs rounded-lg font-medium flex items-center gap-1.5 transition-all ${
+                  eligibleForShipment.length > 0 && !shipmentActionLoading
+                    ? 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-sm cursor-pointer'
+                    : 'opacity-40 cursor-not-allowed bg-slate-800 text-slate-400 select-none'
+                }`}
+                title={
+                  eligibleForShipment.length > 0
+                    ? `Create Shiprocket shipments for ${eligibleForShipment.length} orders`
+                    : 'No selected orders eligible for new shipment creation'
+                }
+              >
+                <Package className="w-3.5 h-3.5" />
+                <span>Send to Shipping ({eligibleForShipment.length})</span>
+              </button>
+
+              {/* Bulk Labels button — NON-CLICKABLE if any selected order has no shipment/AWB */}
+              <button
+                type="button"
+                onClick={handleBulkPrintShippingLabels}
+                disabled={isBulkLabelDisabled || shipmentActionLoading}
+                className={`py-1 px-2.5 text-[11px] sm:text-xs rounded-lg font-medium flex items-center gap-1.5 transition-all ${
+                  !isBulkLabelDisabled && !shipmentActionLoading
+                    ? 'bg-emerald-700/80 hover:bg-emerald-600 text-white border border-emerald-500/50 shadow-sm cursor-pointer'
+                    : 'opacity-40 cursor-not-allowed bg-slate-800/80 text-slate-400 border border-slate-700 pointer-events-none select-none'
+                }`}
+                title={
+                  unreadyForLabelOrders.length > 0
+                    ? `Labels Non-Clickable: ${unreadyForLabelOrders.length} of ${selectedOrders.length} selected orders have no shipment created or AWB assigned yet. Create shipment first!`
+                    : `Generate and print official Shiprocket shipping labels for ${selectedOrders.length} orders`
+                }
+              >
+                <Truck className="w-3.5 h-3.5" />
+                <span>Labels {!isBulkLabelDisabled ? `(${selectedOrders.length})` : '(No Shipment)'}</span>
+              </button>
+
+              {/* Bulk Cancel Shipping / Shipments */}
+              {eligibleForCancelShipment.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleBulkCancelShipments}
+                  disabled={shipmentActionLoading}
+                  className="py-1 px-2.5 text-[11px] sm:text-xs rounded-lg font-medium flex items-center gap-1.5 transition-all bg-amber-950/70 border border-amber-500/40 text-amber-300 hover:bg-amber-900/80 cursor-pointer"
+                  title={`Cancel Shiprocket shipments & AWBs for ${eligibleForCancelShipment.length} orders`}
+                >
+                  <RotateCcw className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Cancel Shipping ({eligibleForCancelShipment.length})</span>
+                </button>
+              )}
+
+              {/* Bulk Cancel Orders */}
+              <button
+                type="button"
+                onClick={handleOpenBulkCancelModal}
+                disabled={shipmentActionLoading || eligibleForCancelOrder.length === 0}
+                className={`py-1 px-2.5 text-[11px] sm:text-xs rounded-lg font-medium flex items-center gap-1.5 transition-all ${
+                  eligibleForCancelOrder.length > 0 && !shipmentActionLoading
+                    ? 'bg-rose-950/70 border border-rose-500/40 text-rose-300 hover:bg-rose-900/80 cursor-pointer'
+                    : 'opacity-40 cursor-not-allowed bg-slate-800 text-slate-400 select-none'
+                }`}
+                title={
+                  eligibleForCancelOrder.length > 0
+                    ? `Cancel ${eligibleForCancelOrder.length} selected orders (auto-cancels active shipments, restores stock & refunds)`
+                    : 'No selected orders eligible for cancellation'
+                }
+              >
+                <XCircle className="w-3.5 h-3.5 text-rose-400" />
+                <span>Cancel Orders ({eligibleForCancelOrder.length})</span>
+              </button>
+
+              <div className="h-4 w-px bg-slate-700 mx-0.5 hidden sm:block" />
+
+              {/* Invoices */}
               <button onClick={handleBulkPrintInvoices} className="btn-secondary py-1 px-2 text-[11px] sm:text-xs">
                 <Printer className="w-3 h-3 sm:w-3.5 sm:h-3.5" /> Invoices
               </button>
+
+              {/* Slips */}
               <button onClick={handleBulkPrintPackingSlips} className="btn-secondary py-1 px-2 text-[11px] sm:text-xs">
                 <FileText className="w-3 h-3 sm:w-3.5 sm:h-3.5" /> Slips
-              </button>
-              <button onClick={handleBulkPrintShippingLabels} className="btn-secondary py-1 px-2 text-[11px] sm:text-xs">
-                <Truck className="w-3 h-3 sm:w-3.5 sm:h-3.5" /> Labels
               </button>
 
               {/* Quick Bulk Status Picker */}
@@ -1268,17 +1501,21 @@ export const Orders = () => {
         </div>
       )}
 
-      {/* CANCEL ORDER CONFIRMATION MODAL */}
+      {/* CANCEL ORDER CONFIRMATION MODAL (Single & Bulk) */}
       {cancelModal.open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-sm no-print">
           <div className="bg-slate-900 border border-slate-700/80 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-scaleIn">
             <div className="px-5 py-4 border-b border-slate-800 flex items-center justify-between bg-rose-500/10">
               <div className="flex items-center gap-2">
                 <XCircle className="w-5 h-5 text-rose-400" />
-                <h3 className="font-bold text-base text-white">Cancel Order</h3>
+                <h3 className="font-bold text-base text-white">
+                  {cancelModal.orderIds?.length > 0
+                    ? `Cancel ${cancelModal.orderIds.length} Selected Orders`
+                    : 'Cancel Order'}
+                </h3>
               </div>
               <button
-                onClick={() => setCancelModal({ open: false, orderId: null, reason: '' })}
+                onClick={() => setCancelModal({ open: false, orderId: null, orderIds: [], reason: '' })}
                 className="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800"
               >
                 <X className="w-5 h-5" />
@@ -1286,15 +1523,23 @@ export const Orders = () => {
             </div>
             <div className="p-5 space-y-4">
               <p className="text-sm text-slate-300">
-                Are you sure you want to cancel order <span className="font-mono font-bold text-white">{cancelModal.orderId}</span>?
+                {cancelModal.orderIds?.length > 0 ? (
+                  <>
+                    Are you sure you want to cancel <strong className="text-white font-mono">{cancelModal.orderIds.length} orders</strong> simultaneously?
+                  </>
+                ) : (
+                  <>
+                    Are you sure you want to cancel order <span className="font-mono font-bold text-white">{cancelModal.orderId}</span>?
+                  </>
+                )}
               </p>
               <div className="text-xs text-amber-400/90 bg-amber-500/10 border border-amber-500/20 rounded-lg p-3 space-y-1">
-                <p className="font-semibold">⚠️ Cancellation Actions:</p>
+                <p className="font-semibold">⚠️ Automated Cancellation Sequence:</p>
                 <ul className="list-disc pl-4 space-y-0.5 text-slate-300">
-                  <li>Cancels shipment & courier AWB in Shiprocket</li>
-                  <li>Restores item stock in database</li>
+                  <li>Cancels any active shipments & courier AWBs in Shiprocket</li>
+                  <li>Restores item stock in database for all items</li>
                   <li>Initiates automatic Razorpay refund for online payments</li>
-                  <li>Marks order status as Cancelled</li>
+                  <li>Marks order status as Cancelled in database audit log</li>
                 </ul>
               </div>
               <div>
@@ -1303,7 +1548,7 @@ export const Orders = () => {
                 </label>
                 <select
                   value={cancelModal.reason}
-                  onChange={(e) => setCancelModal(prev => ({ ...prev, reason: e.target.value }))}
+                  onChange={(e) => setCancelModal((prev) => ({ ...prev, reason: e.target.value }))}
                   className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-rose-500"
                 >
                   <option value="Order cancelled by store administrator">Order cancelled by store administrator</option>
@@ -1316,25 +1561,71 @@ export const Orders = () => {
             </div>
             <div className="px-5 py-3.5 border-t border-slate-800 bg-slate-950/60 flex items-center justify-end gap-2.5">
               <button
-                onClick={() => setCancelModal({ open: false, orderId: null, reason: '' })}
+                onClick={() => setCancelModal({ open: false, orderId: null, orderIds: [], reason: '' })}
                 className="btn-secondary py-1.5 px-3 text-xs"
               >
-                Keep Order
+                Keep Order{cancelModal.orderIds?.length > 1 ? 's' : ''}
               </button>
               <button
                 onClick={async () => {
-                  const targetId = cancelModal.orderId;
+                  const isBulk = Array.isArray(cancelModal.orderIds) && cancelModal.orderIds.length > 0;
+                  const targetIds = isBulk ? cancelModal.orderIds : (cancelModal.orderId ? [cancelModal.orderId] : []);
                   const reason = cancelModal.reason || 'Order cancelled by store administrator';
-                  setCancelModal({ open: false, orderId: null, reason: '' });
-                  try {
-                    await updateOrderStatus(targetId, 'Cancelled', { cancelReason: reason });
-                    showToast('Order cancelled successfully. Stock restored and refund initiated.');
-                    if (refreshOrders) await refreshOrders();
-                  } catch (err) {
-                    showToast(err.message || 'Failed to cancel order');
+
+                  setCancelModal({ open: false, orderId: null, orderIds: [], reason: '' });
+
+                  if (targetIds.length === 0) return;
+
+                  setShipmentActionLoading(true);
+                  let successCount = 0;
+                  let failCount = 0;
+
+                  for (let i = 0; i < targetIds.length; i++) {
+                    const ordId = targetIds[i];
+                    const ord = orders.find((x) => x.id === ordId || x.db_id === ordId);
+                    setActionMessage(`Cancelling order ${i + 1} of ${targetIds.length} (${ordId})...`);
+
+                    try {
+                      // Step 1: If active shipment exists, cancel shipment in Shiprocket first
+                      const hasActiveShipment = ord && (
+                        (ord.shipment && ord.shipment.status && ord.shipment.status !== 'cancelled' && ord.shipment.status !== 'not_created') ||
+                        (ord.shiprocketOrderId && ord.shipmentStatus !== 'cancelled') ||
+                        (ord.trackingNumber && ord.shipmentStatus !== 'cancelled')
+                      );
+
+                      if (hasActiveShipment) {
+                        try {
+                          await adminApi.cancelShipment(ord.db_id || ord.id, reason);
+                        } catch (shipErr) {
+                          console.warn(`Shipment cancel notice during order cancel for ${ordId}:`, shipErr.message);
+                        }
+                      }
+
+                      // Step 2: Cancel order in database (restores stock, triggers refund)
+                      await updateOrderStatus(ordId, 'Cancelled', { cancelReason: reason });
+                      successCount++;
+                    } catch (err) {
+                      failCount++;
+                      console.error(`Failed to cancel order ${ordId}:`, err);
+                    }
+                  }
+
+                  setShipmentActionLoading(false);
+                  setActionMessage('');
+
+                  if (isBulk) {
+                    setSelectedOrders([]);
+                  }
+
+                  if (refreshOrders) await refreshOrders();
+
+                  if (successCount > 0) {
+                    showToast(`Successfully cancelled ${successCount} order${successCount > 1 ? 's' : ''}! Stock restored & refund initiated.`, 'success');
+                  } else {
+                    showToast(`Failed to cancel orders (${failCount} failed)`, 'error');
                   }
                 }}
-                className="py-1.5 px-4 text-xs font-semibold bg-rose-600 hover:bg-rose-500 text-white rounded-lg transition-colors flex items-center gap-1.5"
+                className="py-1.5 px-4 text-xs font-semibold bg-rose-600 hover:bg-rose-500 text-white rounded-lg transition-colors flex items-center gap-1.5 shadow-lg shadow-rose-950/50 cursor-pointer"
               >
                 <XCircle className="w-4 h-4" />
                 Confirm Cancellation
