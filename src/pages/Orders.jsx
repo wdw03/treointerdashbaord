@@ -85,16 +85,6 @@ export const Orders = () => {
 
   const handleStatusChange = (orderId, newStatus) => {
     if (newStatus === 'Cancelled') {
-      const ord = orders.find((o) => o.id === orderId || o.db_id === orderId);
-      const hasActiveShipment = ord && (
-        (ord.shipment && ord.shipment.status && ord.shipment.status !== 'cancelled' && ord.shipment.status !== 'not_created') ||
-        (ord.shiprocketOrderId && ord.shipmentStatus !== 'cancelled') ||
-        (ord.trackingNumber && !ord.trackingNumber.startsWith('SR-') && ord.shipmentStatus !== 'cancelled')
-      );
-      if (hasActiveShipment) {
-        showToast('Active shipment exists in Shiprocket for this order. Please cancel the shipment first before cancelling the order.');
-        return;
-      }
       setCancelModal({ open: true, orderId, reason: 'Order cancelled by store administrator' });
       return;
     }
@@ -1197,16 +1187,6 @@ export const Orders = () => {
                   {!['Cancelled', 'Delivered', 'Returned', 'Refunded'].includes(selectedOrderDetails.status) && (
                     <button
                       onClick={() => {
-                        const hasActiveShipment = 
-                          (selectedOrderDetails.shipment && selectedOrderDetails.shipment.status && selectedOrderDetails.shipment.status !== 'cancelled' && selectedOrderDetails.shipment.status !== 'not_created') ||
-                          (selectedOrderDetails.shiprocketOrderId && selectedOrderDetails.shipmentStatus !== 'cancelled') ||
-                          (selectedOrderDetails.trackingNumber && !selectedOrderDetails.trackingNumber.startsWith('SR-') && selectedOrderDetails.shipmentStatus !== 'cancelled');
-
-                        if (hasActiveShipment) {
-                          showToast('Active shipment exists in Shiprocket for this order. Please cancel the shipment first before cancelling the order.');
-                          return;
-                        }
-
                         setCancelModal({
                           open: true,
                           orderId: selectedOrderDetails.id,
@@ -1215,7 +1195,7 @@ export const Orders = () => {
                       }}
                       disabled={shipmentActionLoading}
                       className="btn-secondary py-1.5 px-3 text-xs flex items-center gap-1.5 border-rose-500/40 text-rose-400 hover:bg-rose-500/10"
-                      title="Cancel order, refund online payment & restore stock"
+                      title="Cancel order, cancel Shiprocket shipment, refund online payment & restore stock"
                     >
                       <XCircle className="w-3.5 h-3.5 text-rose-400" />
                       Cancel Order
@@ -1311,6 +1291,7 @@ export const Orders = () => {
               <div className="text-xs text-amber-400/90 bg-amber-500/10 border border-amber-500/20 rounded-lg p-3 space-y-1">
                 <p className="font-semibold">⚠️ Cancellation Actions:</p>
                 <ul className="list-disc pl-4 space-y-0.5 text-slate-300">
+                  <li>Cancels shipment & courier AWB in Shiprocket</li>
                   <li>Restores item stock in database</li>
                   <li>Initiates automatic Razorpay refund for online payments</li>
                   <li>Marks order status as Cancelled</li>
