@@ -206,12 +206,15 @@ export const AdminProvider = ({ children }) => {
             totalStock: Number(p.stock ?? 50),
             availableStock: Number(p.stock ?? 50),
             reservedStock: 0,
-            lowStockThreshold: 15,
-            status: Number(p.stock ?? 50) === 0 ? 'Out of Stock' : Number(p.stock ?? 50) <= 15 ? 'Low Stock' : 'In Stock',
+            lowStockThreshold: Number(p.low_stock_threshold || 15),
+            status: (!p.inStock || Number(p.stock ?? 50) === 0) ? 'Out of Stock' : (Number(p.stock ?? 50) <= Number(p.low_stock_threshold || 15) ? 'Low Stock' : 'In Stock'),
+            is_visible: p.is_visible !== false,
+            sold_quantity: Number(p.sold_quantity || 0),
             lastRestocked: p.updated_at ? p.updated_at.split('T')[0] : '2026-09-08',
             variants: (p.colors || []).map((c) => ({
               name: typeof c === 'object' ? c.name : c,
-              stock: Math.floor(Number(p.stock ?? 50) / ((p.colors?.length) || 1)),
+              hex: typeof c === 'object' ? c.hex : '#D4AF37',
+              stock: (typeof c === 'object' && c.stock !== undefined) ? Number(c.stock) : Math.floor(Number(p.stock ?? 50) / ((p.colors?.length) || 1)),
             })),
           })));
         }
@@ -530,6 +533,10 @@ export const AdminProvider = ({ children }) => {
         }
         return item;
       })
+    );
+
+    setProducts((prev) =>
+      prev.map((p) => (p.id === Number(productId) ? { ...p, stock: newStockLevel, inStock: newStockLevel > 0, in_stock: newStockLevel > 0 } : p))
     );
 
     // Sync product stock with database
