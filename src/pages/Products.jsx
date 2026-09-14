@@ -100,11 +100,11 @@ export const Products = () => {
       price: 299,
       originalPrice: 699,
       discount: 57,
-      weight: 0.5,
-      length: 15,
-      breadth: 10,
-      height: 5,
-      dimensions: { length: 15, breadth: 10, height: 5 },
+      weight: '',
+      length: '',
+      breadth: '',
+      height: '',
+      dimensions: { length: '', breadth: '', height: '' },
       material: 'Fabric, Zari, Glass Beads',
       color: 'Gold and Pink',
       occasion: 'Sarees, Lehengas, Dupattas & Festive DIY',
@@ -136,20 +136,50 @@ export const Products = () => {
   const handleSaveProduct = (e) => {
     e.preventDefault();
     if (!editingProduct.name.trim()) {
+      setActiveEditorTab('basic');
       showToast('Product name is required!', 'error');
+      return;
+    }
+
+    const weightVal = parseFloat(editingProduct.weight);
+    const lengthVal = parseFloat(editingProduct.length !== undefined && editingProduct.length !== null && editingProduct.length !== '' ? editingProduct.length : (editingProduct.dimensions?.length));
+    const breadthVal = parseFloat(editingProduct.breadth !== undefined && editingProduct.breadth !== null && editingProduct.breadth !== '' ? editingProduct.breadth : (editingProduct.dimensions?.breadth));
+    const heightVal = parseFloat(editingProduct.height !== undefined && editingProduct.height !== null && editingProduct.height !== '' ? editingProduct.height : (editingProduct.dimensions?.height));
+
+    if (editingProduct.weight === undefined || editingProduct.weight === null || editingProduct.weight === '' || isNaN(weightVal) || weightVal <= 0) {
+      setActiveEditorTab('pricing');
+      showToast('Product Weight (kg) is mandatory! Please enter weight greater than 0 kg (e.g. 0.25 kg).', 'error');
+      return;
+    }
+
+    if (isNaN(lengthVal) || lengthVal <= 0) {
+      setActiveEditorTab('pricing');
+      showToast('Package Length (cm) is mandatory! Please enter box length greater than 0 cm.', 'error');
+      return;
+    }
+
+    if (isNaN(breadthVal) || breadthVal <= 0) {
+      setActiveEditorTab('pricing');
+      showToast('Package Breadth (cm) is mandatory! Please enter box breadth greater than 0 cm.', 'error');
+      return;
+    }
+
+    if (isNaN(heightVal) || heightVal <= 0) {
+      setActiveEditorTab('pricing');
+      showToast('Package Height (cm) is mandatory! Please enter box height greater than 0 cm.', 'error');
       return;
     }
 
     const payload = {
       ...editingProduct,
-      weight: Number(editingProduct.weight !== undefined && editingProduct.weight !== null ? editingProduct.weight : 0.5),
-      length: Number(editingProduct.length || editingProduct.dimensions?.length || 15),
-      breadth: Number(editingProduct.breadth || editingProduct.dimensions?.breadth || 10),
-      height: Number(editingProduct.height || editingProduct.dimensions?.height || 5),
+      weight: weightVal,
+      length: lengthVal,
+      breadth: breadthVal,
+      height: heightVal,
       dimensions: {
-        length: Number(editingProduct.length || editingProduct.dimensions?.length || 15),
-        breadth: Number(editingProduct.breadth || editingProduct.dimensions?.breadth || 10),
-        height: Number(editingProduct.height || editingProduct.dimensions?.height || 5),
+        length: lengthVal,
+        breadth: breadthVal,
+        height: heightVal,
       }
     };
 
@@ -691,45 +721,50 @@ export const Products = () => {
                   </div>
 
                   {/* Shipping Weight & Dimensions for Shiprocket Courier Calculation */}
-                  <div className="pt-3.5 border-t border-slate-800 space-y-2">
+                  <div className="pt-3.5 border-t border-slate-800 space-y-2 bg-slate-950/40 p-3 rounded-lg border border-indigo-500/20">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
                       <label className="font-bold text-indigo-300 flex items-center gap-1.5 text-xs">
                         <Truck className="w-3.5 h-3.5 text-indigo-400" />
                         Shipping Specifications (Weight & Package Dimensions)
+                        <span className="text-red-400 font-black text-xs">* Mandatory</span>
                       </label>
-                      <span className="text-[10px] text-amber-400 font-mono font-bold bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20 w-fit">
-                        Required for accurate courier rate & shipment dispatch
+                      <span className="text-[10px] text-red-400 font-mono font-bold bg-red-500/10 px-2 py-0.5 rounded border border-red-500/20 w-fit">
+                        ★ Mandatory for Accurate Courier Rate & Dispatch
                       </span>
                     </div>
                     <p className="text-[11px] text-slate-400">
-                      Enter the single packed item weight in kg (e.g. 0.25 kg = 250g) and outer box dimensions in cm.
+                      Enter the single packed item weight in kg (e.g. 0.25 kg = 250g) and outer box dimensions in cm. All 4 fields must be filled.
                     </p>
 
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
                       <div>
-                        <label className="font-semibold text-slate-300 block mb-1 text-[11px]">Weight (kg) *</label>
+                        <label className="font-semibold text-slate-300 block mb-1 text-[11px]">
+                          Weight (kg) <span className="text-red-400 font-bold">*</span>
+                        </label>
                         <input
                           type="number"
                           step="0.01"
                           min="0.01"
-                          value={editingProduct.weight !== undefined && editingProduct.weight !== null ? editingProduct.weight : 0.5}
-                          onChange={(e) => setEditingProduct({ ...editingProduct, weight: parseFloat(e.target.value) || 0.1 })}
+                          value={editingProduct.weight !== undefined && editingProduct.weight !== null ? editingProduct.weight : ''}
+                          onChange={(e) => setEditingProduct({ ...editingProduct, weight: e.target.value === '' ? '' : parseFloat(e.target.value) })}
                           placeholder="e.g. 0.5"
-                          className="admin-input w-full text-xs font-mono"
+                          className="admin-input w-full text-xs font-mono border-indigo-500/40 focus:border-indigo-400"
                           required
                         />
                         <span className="text-[10px] text-slate-500">e.g. 0.5 kg (500g)</span>
                       </div>
 
                       <div>
-                        <label className="font-semibold text-slate-300 block mb-1 text-[11px]">Length (cm) *</label>
+                        <label className="font-semibold text-slate-300 block mb-1 text-[11px]">
+                          Length (cm) <span className="text-red-400 font-bold">*</span>
+                        </label>
                         <input
                           type="number"
                           step="0.5"
                           min="1"
-                          value={editingProduct.length !== undefined && editingProduct.length !== null ? editingProduct.length : (editingProduct.dimensions?.length || 15)}
+                          value={editingProduct.length !== undefined && editingProduct.length !== null ? editingProduct.length : (editingProduct.dimensions?.length !== undefined ? editingProduct.dimensions.length : '')}
                           onChange={(e) => {
-                            const val = parseFloat(e.target.value) || 10;
+                            const val = e.target.value === '' ? '' : parseFloat(e.target.value);
                             setEditingProduct({
                               ...editingProduct,
                               length: val,
@@ -737,21 +772,23 @@ export const Products = () => {
                             });
                           }}
                           placeholder="e.g. 15"
-                          className="admin-input w-full text-xs font-mono"
+                          className="admin-input w-full text-xs font-mono border-indigo-500/40 focus:border-indigo-400"
                           required
                         />
                         <span className="text-[10px] text-slate-500">Box length (cm)</span>
                       </div>
 
                       <div>
-                        <label className="font-semibold text-slate-300 block mb-1 text-[11px]">Breadth (cm) *</label>
+                        <label className="font-semibold text-slate-300 block mb-1 text-[11px]">
+                          Breadth (cm) <span className="text-red-400 font-bold">*</span>
+                        </label>
                         <input
                           type="number"
                           step="0.5"
                           min="1"
-                          value={editingProduct.breadth !== undefined && editingProduct.breadth !== null ? editingProduct.breadth : (editingProduct.dimensions?.breadth || 10)}
+                          value={editingProduct.breadth !== undefined && editingProduct.breadth !== null ? editingProduct.breadth : (editingProduct.dimensions?.breadth !== undefined ? editingProduct.dimensions.breadth : '')}
                           onChange={(e) => {
-                            const val = parseFloat(e.target.value) || 10;
+                            const val = e.target.value === '' ? '' : parseFloat(e.target.value);
                             setEditingProduct({
                               ...editingProduct,
                               breadth: val,
@@ -759,21 +796,23 @@ export const Products = () => {
                             });
                           }}
                           placeholder="e.g. 10"
-                          className="admin-input w-full text-xs font-mono"
+                          className="admin-input w-full text-xs font-mono border-indigo-500/40 focus:border-indigo-400"
                           required
                         />
                         <span className="text-[10px] text-slate-500">Box width (cm)</span>
                       </div>
 
                       <div>
-                        <label className="font-semibold text-slate-300 block mb-1 text-[11px]">Height (cm) *</label>
+                        <label className="font-semibold text-slate-300 block mb-1 text-[11px]">
+                          Height (cm) <span className="text-red-400 font-bold">*</span>
+                        </label>
                         <input
                           type="number"
                           step="0.5"
                           min="1"
-                          value={editingProduct.height !== undefined && editingProduct.height !== null ? editingProduct.height : (editingProduct.dimensions?.height || 5)}
+                          value={editingProduct.height !== undefined && editingProduct.height !== null ? editingProduct.height : (editingProduct.dimensions?.height !== undefined ? editingProduct.dimensions.height : '')}
                           onChange={(e) => {
-                            const val = parseFloat(e.target.value) || 5;
+                            const val = e.target.value === '' ? '' : parseFloat(e.target.value);
                             setEditingProduct({
                               ...editingProduct,
                               height: val,
@@ -781,7 +820,7 @@ export const Products = () => {
                             });
                           }}
                           placeholder="e.g. 5"
-                          className="admin-input w-full text-xs font-mono"
+                          className="admin-input w-full text-xs font-mono border-indigo-500/40 focus:border-indigo-400"
                           required
                         />
                         <span className="text-[10px] text-slate-500">Box height (cm)</span>
