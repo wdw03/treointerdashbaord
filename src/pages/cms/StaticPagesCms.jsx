@@ -23,7 +23,12 @@ import {
   RefreshCw,
   Check,
   ExternalLink,
-  MessageCircle
+  MessageCircle,
+  EyeOff,
+  ArrowUp,
+  ArrowDown,
+  Tag,
+  Layers
 } from 'lucide-react';
 
 export const StaticPagesCms = () => {
@@ -45,10 +50,33 @@ export const StaticPagesCms = () => {
   const [viewingMessage, setViewingMessage] = useState(null);
   const [replyText, setReplyText] = useState('');
 
-  // New FAQ form
-  const [newQuestion, setNewQuestion] = useState('');
-  const [newAnswer, setNewAnswer] = useState('');
+  // Live FAQs State
+  const [faqsLoading, setFaqsLoading] = useState(false);
   const [showAddFaq, setShowAddFaq] = useState(false);
+  const [editingFaqId, setEditingFaqId] = useState(null);
+  const [faqSearch, setFaqSearch] = useState('');
+  const [faqCategoryFilter, setFaqCategoryFilter] = useState('All');
+  const [faqForm, setFaqForm] = useState({
+    question: '',
+    answer: '',
+    category: 'Craft & Authenticity',
+    sort_order: 0,
+    is_visible: true
+  });
+
+  const fetchFaqs = async () => {
+    setFaqsLoading(true);
+    try {
+      const res = await adminApi.getFaqs({ all: true });
+      if (res && Array.isArray(res.faqs)) {
+        setFaqs(res.faqs);
+      }
+    } catch (err) {
+      console.warn('Failed to fetch live FAQs, using fallback:', err);
+    } finally {
+      setFaqsLoading(false);
+    }
+  };
 
   // Fetch inquiries
   const fetchInquiries = async () => {
@@ -67,6 +95,7 @@ export const StaticPagesCms = () => {
 
   useEffect(() => {
     fetchInquiries();
+    fetchFaqs();
   }, []);
 
   // Save About Us
@@ -81,30 +110,101 @@ export const StaticPagesCms = () => {
     updatePage('contact', contactData);
   };
 
-  // Add FAQ
-  const handleAddFaq = (e) => {
+  // Save / Update FAQ
+  const handleSaveFaq = async (e) => {
     e.preventDefault();
-    if (!newQuestion.trim() || !newAnswer.trim()) return;
-    const updated = [
-      ...faqs,
-      {
-        id: `FAQ-${Date.now()}`,
-        question: newQuestion.trim(),
-        answer: newAnswer.trim()
+    if (!faqForm.question.trim() || !faqForm.answer.trim()) {
+      showToast?.('Please enter both question and answer', 'error');
+      return;
+    }
+
+    try {
+      if (editingFaqId) {
+        await adminApi.updateFaq(editingFaqId, faqForm);
+        showToast?.('FAQ updated successfully!', 'success');
+      } else {
+        await adminApi.createFaq(faqForm);
+        showToast?.('New FAQ published!', 'success');
       }
-    ];
-    setFaqs(updated);
-    updatePage('faqs', updated);
-    setNewQuestion('');
-    setNewAnswer('');
+      setFaqForm({
+        question: '',
+        answer: '',
+        category: 'Craft & Authenticity',
+        sort_order: 0,
+        is_visible: true
+      });
+      setEditingFaqId(null);
+      setShowAddFaq(false);
+      fetchFaqs();
+    } catch (err) {
+      console.error('Failed to save FAQ:', err);
+      showToast?.('Failed to save FAQ: ' + err.message, 'error');
+    }
+  };
+
+  // Start editing FAQ
+  const handleEditFaq = (faq) => {
+    setEditingFaqId(faq.id);
+    setFaqForm({
+      question: faq.question || '',
+      answer: faq.answer || '',
+      category: faq.category || 'General',
+      sort_order: faq.sort_order || 0,
+      is_visible: faq.is_visible !== false
+    });
+    setShowAddFaq(true);
+    window.scrollTo({ top: 300, behavior: 'smooth' });
+  };
+
+  // Cancel edit/add
+  const handleCancelFaqForm = () => {
     setShowAddFaq(false);
+    setEditingFaqId(null);
+    setFaqForm({
+      question: '',
+      answer: '',
+      category: 'Craft & Authenticity',
+      sort_order: 0,
+      is_visible: true
+    });
+  };
+
+  // Toggle FAQ visibility
+  const handleToggleFaqVisibility = async (faq) => {
+    try {
+      const nextVisible = !faq.is_visible;
+      await adminApi.updateFaq(faq.id, { is_visible: nextVisible });
+      setFaqs(prev => prev.map(f => f.id === faq.id ? { ...f, is_visible: nextVisible } : f));
+      showToast?.(nextVisible ? 'FAQ published to storefront' : 'FAQ hidden from storefront', 'success');
+    } catch (err) {
+      console.error('Failed to toggle FAQ visibility:', err);
+      showToast?.('Failed to update visibility', 'error');
+    }
   };
 
   // Delete FAQ
-  const handleDeleteFaq = (id) => {
-    const updated = faqs.filter((f) => f.id !== id);
-    setFaqs(updated);
-    updatePage('faqs', updated);
+  const handleDeleteFaq = async (id) => {
+    if (!window.confirm('Are you sure you want to permanently delete this FAQ?')) return;
+    try {
+      await adminApi.deleteFaq(id);
+      setFaqs(prev => prev.filter(f => f.id !== id));
+      showToast?.('FAQ deleted successfully', 'success');
+    } catch (err) {
+      console.error('Failed to delete FAQ:', err);
+      showToast?.('Failed to delete FAQ', 'error');
+    }
+  };
+
+  // Move FAQ sort order
+  const handleMoveFaqOrder = async (faq, direction) => {
+    const currentOrder = faq.sort_order || 0;
+    const newOrder = direction === 'up' ? Math.max(0, currentOrder - 1) : currentOrder + 1;
+    try {
+      await adminApi.updateFaq(faq.id, { sort_order: newOrder });
+      fetchFaqs();
+    } catch (err) {
+      console.error('Failed to reorder FAQ:', err);
+    }
   };
 
   // Update Inquiry Status
@@ -687,103 +787,347 @@ export const StaticPagesCms = () => {
 
       {/* TAB 3: FAQS ACCORDION MANAGER */}
       {activeTab === 'faqs' && (
-        <div className="space-y-4 animate-fadeIn">
-          <div className="flex items-center justify-between">
-            <h3 className="font-bold text-white text-base">Frequently Asked Questions ({faqs.length})</h3>
-            <button
-              type="button"
-              onClick={() => setShowAddFaq(!showAddFaq)}
-              className="btn-primary py-1.5 px-3 text-xs font-bold"
-            >
-              <Plus className="w-3.5 h-3.5" /> Add New FAQ
-            </button>
+        <div className="space-y-5 animate-fadeIn">
+          {/* FAQ Stats & Action Header */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="admin-card p-3.5 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center shrink-0">
+                <HelpCircle className="w-5 h-5" />
+              </div>
+              <div>
+                <span className="text-xs text-slate-400 block font-medium">Total Questions</span>
+                <span className="text-xl font-black text-white font-mono">{faqs.length}</span>
+              </div>
+            </div>
+
+            <div className="admin-card p-3.5 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
+                <Eye className="w-5 h-5" />
+              </div>
+              <div>
+                <span className="text-xs text-slate-400 block font-medium">Published on Store</span>
+                <span className="text-xl font-black text-emerald-400 font-mono">
+                  {faqs.filter(f => f.is_visible !== false).length}
+                </span>
+              </div>
+            </div>
+
+            <div className="admin-card p-3.5 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center shrink-0">
+                <EyeOff className="w-5 h-5" />
+              </div>
+              <div>
+                <span className="text-xs text-slate-400 block font-medium">Hidden / Drafts</span>
+                <span className="text-xl font-black text-amber-400 font-mono">
+                  {faqs.filter(f => f.is_visible === false).length}
+                </span>
+              </div>
+            </div>
           </div>
 
-          {/* Add FAQ Box */}
+          {/* Search, Filter & Add Button Bar */}
+          <div className="admin-card p-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div className="flex items-center gap-2 w-full sm:w-auto flex-1">
+              <div className="relative flex-1 sm:max-w-xs">
+                <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search FAQ questions or answers..."
+                  value={faqSearch}
+                  onChange={(e) => setFaqSearch(e.target.value)}
+                  className="admin-input pl-8 pr-3 py-1.5 w-full text-xs"
+                />
+              </div>
+
+              {/* Category Filter */}
+              <select
+                value={faqCategoryFilter}
+                onChange={(e) => setFaqCategoryFilter(e.target.value)}
+                className="admin-input py-1.5 px-3 text-xs w-auto"
+              >
+                <option value="All">All Categories</option>
+                <option value="Craft & Authenticity">Craft & Authenticity</option>
+                <option value="Usage & Care">Usage & Care</option>
+                <option value="Shipping & Delivery">Shipping & Delivery</option>
+                <option value="Orders & Returns">Orders & Returns</option>
+                <option value="Payments">Payments</option>
+                <option value="General">General</option>
+              </select>
+            </div>
+
+            <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+              <button
+                type="button"
+                onClick={fetchFaqs}
+                disabled={faqsLoading}
+                className="btn-secondary py-1.5 px-3 text-xs flex items-center gap-1.5"
+                title="Refresh FAQs from database"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${faqsLoading ? 'animate-spin' : ''}`} />
+                <span>Refresh</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (showAddFaq && !editingFaqId) {
+                    setShowAddFaq(false);
+                  } else {
+                    setEditingFaqId(null);
+                    setFaqForm({
+                      question: '',
+                      answer: '',
+                      category: 'Craft & Authenticity',
+                      sort_order: faqs.length + 1,
+                      is_visible: true
+                    });
+                    setShowAddFaq(true);
+                  }
+                }}
+                className="btn-primary py-1.5 px-3.5 text-xs font-bold flex items-center gap-1.5"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>{showAddFaq && !editingFaqId ? 'Close Form' : 'Add New FAQ'}</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Add / Edit FAQ Form */}
           {showAddFaq && (
-            <form onSubmit={handleAddFaq} className="admin-card p-5 space-y-3 text-xs border-indigo-500/40">
-              <div className="flex items-center justify-between pb-2 border-b border-slate-800">
-                <span className="font-bold text-indigo-400">Add Question &amp; Answer</span>
-                <button type="button" onClick={() => setShowAddFaq(false)} className="text-slate-400 hover:text-white">
+            <form onSubmit={handleSaveFaq} className="admin-card p-5 space-y-4 text-xs border-indigo-500/40 animate-fadeIn">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+                <span className="font-bold text-sm text-indigo-400 flex items-center gap-2">
+                  <HelpCircle className="w-4 h-4" />
+                  {editingFaqId ? 'Edit FAQ Item' : 'Add New FAQ Question'}
+                </span>
+                <button
+                  type="button"
+                  onClick={handleCancelFaqForm}
+                  className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"
+                >
                   <X className="w-4 h-4" />
                 </button>
               </div>
 
-              <div>
-                <label className="font-semibold text-slate-300 block mb-1">Question *</label>
-                <input
-                  type="text"
-                  value={newQuestion}
-                  onChange={(e) => setNewQuestion(e.target.value)}
-                  placeholder="e.g. How do I wash velvet pooja aasans?"
-                  className="admin-input w-full text-xs"
-                  required
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="sm:col-span-2">
+                  <label className="font-semibold text-slate-300 block mb-1">Question Text *</label>
+                  <input
+                    type="text"
+                    value={faqForm.question}
+                    onChange={(e) => setFaqForm({ ...faqForm, question: e.target.value })}
+                    placeholder="e.g. How do I maintain pure copper bottles without tarnishing?"
+                    className="admin-input w-full text-xs font-medium"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="font-semibold text-slate-300 block mb-1">Category</label>
+                  <select
+                    value={faqForm.category}
+                    onChange={(e) => setFaqForm({ ...faqForm, category: e.target.value })}
+                    className="admin-input w-full text-xs"
+                  >
+                    <option value="Craft & Authenticity">Craft & Authenticity</option>
+                    <option value="Usage & Care">Usage & Care</option>
+                    <option value="Shipping & Delivery">Shipping & Delivery</option>
+                    <option value="Orders & Returns">Orders & Returns</option>
+                    <option value="Payments">Payments</option>
+                    <option value="General">General</option>
+                  </select>
+                </div>
               </div>
 
               <div>
-                <label className="font-semibold text-slate-300 block mb-1">Answer *</label>
+                <label className="font-semibold text-slate-300 block mb-1">Detailed Answer *</label>
                 <textarea
-                  rows={3}
-                  value={newAnswer}
-                  onChange={(e) => setNewAnswer(e.target.value)}
-                  placeholder="Detailed informative response for customers..."
+                  rows={4}
+                  value={faqForm.answer}
+                  onChange={(e) => setFaqForm({ ...faqForm, answer: e.target.value })}
+                  placeholder="Provide a clear, detailed, authoritative answer for customers..."
                   className="admin-input w-full text-xs leading-relaxed"
                   required
                 />
               </div>
 
-              <div className="flex justify-end gap-2 pt-1">
-                <button type="button" onClick={() => setShowAddFaq(false)} className="btn-secondary py-1 px-3 text-xs">
-                  Cancel
-                </button>
-                <button type="submit" className="btn-primary py-1 px-3.5 text-xs font-bold">
-                  Save FAQ
-                </button>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 border-t border-slate-800/80">
+                <div className="flex items-center gap-4">
+                  <label className="flex items-center gap-2 cursor-pointer text-slate-300">
+                    <input
+                      type="checkbox"
+                      checked={faqForm.is_visible}
+                      onChange={(e) => setFaqForm({ ...faqForm, is_visible: e.target.checked })}
+                      className="rounded border-slate-700 text-indigo-600 focus:ring-indigo-500 w-4 h-4 bg-slate-900"
+                    />
+                    <span className="font-semibold">Publish on Storefront</span>
+                  </label>
+
+                  <div className="flex items-center gap-1.5 text-slate-400">
+                    <span>Sort Order:</span>
+                    <input
+                      type="number"
+                      value={faqForm.sort_order}
+                      onChange={(e) => setFaqForm({ ...faqForm, sort_order: parseInt(e.target.value, 10) || 0 })}
+                      className="admin-input w-16 text-center py-0.5 px-1 text-xs"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={handleCancelFaqForm}
+                    className="btn-secondary py-1.5 px-3.5 text-xs font-semibold"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="btn-primary py-1.5 px-4 text-xs font-bold flex items-center gap-1.5"
+                  >
+                    <Save className="w-3.5 h-3.5" />
+                    <span>{editingFaqId ? 'Update FAQ' : 'Save & Publish FAQ'}</span>
+                  </button>
+                </div>
               </div>
             </form>
           )}
 
-          {/* FAQ List */}
+          {/* FAQ List Cards */}
           <div className="space-y-3">
-            {isPageLoading ? (
+            {faqsLoading ? (
               Array.from({ length: 4 }).map((_, i) => (
                 <div key={i} className="admin-card p-4 space-y-2.5">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2.5 flex-1">
-                      <Skeleton className="h-3.5 w-6 rounded" />
-                      <Skeleton className="h-3.5 w-64" />
-                    </div>
-                    <Skeleton className="h-6 w-6 rounded-lg shrink-0" />
+                    <Skeleton className="h-4 w-64" />
+                    <Skeleton className="h-6 w-20 rounded-lg" />
                   </div>
-                  <Skeleton className="h-3 w-5/6 opacity-70 ml-8" />
-                  <Skeleton className="h-3 w-2/3 opacity-50 ml-8" />
+                  <Skeleton className="h-3 w-5/6 opacity-70" />
                 </div>
               ))
+            ) : faqs
+                .filter(faq => {
+                  const matchesCat = faqCategoryFilter === 'All' || faq.category === faqCategoryFilter;
+                  const q = faqSearch.toLowerCase().trim();
+                  const matchesSearch = !q || 
+                    (faq.question && faq.question.toLowerCase().includes(q)) || 
+                    (faq.answer && faq.answer.toLowerCase().includes(q));
+                  return matchesCat && matchesSearch;
+                })
+                .length === 0 ? (
+              <div className="admin-card p-8 text-center space-y-2 border-dashed border-slate-800">
+                <HelpCircle className="w-8 h-8 text-slate-600 mx-auto" />
+                <p className="text-slate-400 text-xs font-medium">No FAQs match your search criteria.</p>
+                <button
+                  onClick={() => { setFaqSearch(''); setFaqCategoryFilter('All'); }}
+                  className="text-xs text-indigo-400 hover:underline font-bold"
+                >
+                  Clear search filters
+                </button>
+              </div>
             ) : (
-              faqs.map((faq, index) => (
-                <div key={faq.id} className="admin-card p-4 space-y-2 text-xs">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-start gap-2.5">
-                      <span className="font-mono text-indigo-400 font-bold shrink-0">Q{index + 1}.</span>
-                      <h4 className="font-bold text-slate-100 text-xs">{faq.question}</h4>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteFaq(faq.id)}
-                      className="p-1.5 text-rose-400 hover:text-white hover:bg-rose-500/20 rounded-lg transition-colors shrink-0"
-                      title="Delete Question"
+              faqs
+                .filter(faq => {
+                  const matchesCat = faqCategoryFilter === 'All' || faq.category === faqCategoryFilter;
+                  const q = faqSearch.toLowerCase().trim();
+                  const matchesSearch = !q || 
+                    (faq.question && faq.question.toLowerCase().includes(q)) || 
+                    (faq.answer && faq.answer.toLowerCase().includes(q));
+                  return matchesCat && matchesSearch;
+                })
+                .map((faq, index) => {
+                  const isVisible = faq.is_visible !== false;
+                  return (
+                    <div
+                      key={faq.id || index}
+                      className={`admin-card p-4 space-y-3 text-xs transition-all ${
+                        !isVisible ? 'opacity-70 bg-slate-900/30 border-dashed border-slate-800' : ''
+                      }`}
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
+                      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                        <div className="flex items-start gap-3 min-w-0 flex-1">
+                          <span className="font-mono text-indigo-400 font-black shrink-0 px-2 py-0.5 rounded bg-indigo-500/10 border border-indigo-500/20 text-[11px]">
+                            #{faq.sort_order ?? index + 1}
+                          </span>
+                          <div className="space-y-1 min-w-0 flex-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h4 className="font-bold text-slate-100 text-xs sm:text-sm">
+                                {faq.question}
+                              </h4>
+                              {faq.category && (
+                                <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-800 text-slate-300 border border-slate-700">
+                                  {faq.category}
+                                </span>
+                              )}
+                              <span
+                                className={`px-2 py-0.5 rounded text-[10px] font-bold inline-flex items-center gap-1 ${
+                                  isVisible
+                                    ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                                    : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                                }`}
+                              >
+                                {isVisible ? <Eye className="w-2.5 h-2.5" /> : <EyeOff className="w-2.5 h-2.5" />}
+                                {isVisible ? 'Published' : 'Hidden'}
+                              </span>
+                            </div>
+                            <p className="text-slate-400 leading-relaxed pt-1">
+                              {faq.answer}
+                            </p>
+                          </div>
+                        </div>
 
-                  <p className="text-slate-400 pl-6 leading-relaxed">
-                    {faq.answer}
-                  </p>
-                </div>
-              ))
+                        {/* Action buttons */}
+                        <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-start">
+                          <button
+                            type="button"
+                            onClick={() => handleMoveFaqOrder(faq, 'up')}
+                            className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
+                            title="Move Higher in Sort Order"
+                          >
+                            <ArrowUp className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleMoveFaqOrder(faq, 'down')}
+                            className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
+                            title="Move Lower in Sort Order"
+                          >
+                            <ArrowDown className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleToggleFaqVisibility(faq)}
+                            className={`p-1.5 rounded-lg transition-colors ${
+                              isVisible
+                                ? 'text-slate-400 hover:text-amber-400 hover:bg-amber-500/10'
+                                : 'text-amber-400 hover:text-emerald-400 hover:bg-emerald-500/10'
+                            }`}
+                            title={isVisible ? 'Hide FAQ from Storefront' : 'Publish FAQ to Storefront'}
+                          >
+                            {isVisible ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleEditFaq(faq)}
+                            className="p-1.5 text-indigo-400 hover:text-white hover:bg-indigo-500/20 rounded-lg transition-colors"
+                            title="Edit FAQ"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteFaq(faq.id)}
+                            className="p-1.5 text-rose-400 hover:text-white hover:bg-rose-500/20 rounded-lg transition-colors"
+                            title="Delete FAQ"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
             )}
           </div>
         </div>
@@ -791,3 +1135,4 @@ export const StaticPagesCms = () => {
     </div>
   );
 };
+

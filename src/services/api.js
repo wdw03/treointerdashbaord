@@ -165,6 +165,42 @@ export const adminApi = {
     });
   },
 
+  uploadBlogImage: async (file, alt = '') => {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (alt) formData.append('alt', alt);
+    return request('/admin/upload/blog', {
+      method: 'POST',
+      body: formData,
+    });
+  },
+
+  // FAQ Management
+  getFaqs: async (params = {}) => {
+    const qs = params && params.all ? '?all=true' : '';
+    return request('/faqs' + qs);
+  },
+
+  createFaq: async (faqData) => {
+    return request('/faqs', {
+      method: 'POST',
+      body: JSON.stringify(faqData),
+    });
+  },
+
+  updateFaq: async (id, faqData) => {
+    return request('/faqs', {
+      method: 'PUT',
+      body: JSON.stringify({ id, ...faqData }),
+    });
+  },
+
+  deleteFaq: async (id) => {
+    return request('/faqs?id=' + id, {
+      method: 'DELETE',
+    });
+  },
+
   // COD Serviceable Pincodes Management
   getCodPincodes: async () => {
     return request('/admin/cod-pincodes');
