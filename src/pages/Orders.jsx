@@ -1328,7 +1328,7 @@ export const Orders = () => {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 text-xs">
                   <div className="bg-slate-900/80 p-2.5 rounded-lg border border-slate-800">
                     <span className="text-[10px] uppercase text-slate-500 block font-bold">Courier</span>
                     <span className="text-slate-200 font-semibold truncate block mt-0.5">
@@ -1354,6 +1354,20 @@ export const Orders = () => {
                     <span className="text-[10px] uppercase text-slate-500 block font-bold">Pickup Status</span>
                     <span className="text-emerald-400 font-semibold truncate block mt-0.5 capitalize">
                       {selectedOrderDetails.pickupStatus || 'Not Requested'}
+                    </span>
+                  </div>
+
+                  <div className="bg-slate-900/80 p-2.5 rounded-lg border border-slate-800">
+                    <span className="text-[10px] uppercase text-slate-500 block font-bold">Weight</span>
+                    <span className="text-indigo-300 font-mono font-semibold truncate block mt-0.5">
+                      {selectedOrderDetails.packageWeight || selectedOrderDetails.shipment?.weight || 0.5} kg
+                    </span>
+                  </div>
+
+                  <div className="bg-slate-900/80 p-2.5 rounded-lg border border-slate-800">
+                    <span className="text-[10px] uppercase text-slate-500 block font-bold">Box (L×B×H)</span>
+                    <span className="text-indigo-300 font-mono font-semibold truncate block mt-0.5">
+                      {selectedOrderDetails.packageDimensions?.length || selectedOrderDetails.shipment?.dimensions?.length || 15}×{selectedOrderDetails.packageDimensions?.breadth || selectedOrderDetails.shipment?.dimensions?.breadth || 10}×{selectedOrderDetails.packageDimensions?.height || selectedOrderDetails.shipment?.dimensions?.height || 5} cm
                     </span>
                   </div>
                 </div>
