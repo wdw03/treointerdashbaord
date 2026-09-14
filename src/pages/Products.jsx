@@ -24,7 +24,8 @@ import {
   Image as ImageIcon,
   Camera,
   ZoomIn,
-  Star
+  Star,
+  Truck
 } from 'lucide-react';
 
 const FILTER_BADGES = [
@@ -99,6 +100,11 @@ export const Products = () => {
       price: 299,
       originalPrice: 699,
       discount: 57,
+      weight: 0.5,
+      length: 15,
+      breadth: 10,
+      height: 5,
+      dimensions: { length: 15, breadth: 10, height: 5 },
       material: 'Fabric, Zari, Glass Beads',
       color: 'Gold and Pink',
       occasion: 'Sarees, Lehengas, Dupattas & Festive DIY',
@@ -134,10 +140,23 @@ export const Products = () => {
       return;
     }
 
+    const payload = {
+      ...editingProduct,
+      weight: Number(editingProduct.weight !== undefined && editingProduct.weight !== null ? editingProduct.weight : 0.5),
+      length: Number(editingProduct.length || editingProduct.dimensions?.length || 15),
+      breadth: Number(editingProduct.breadth || editingProduct.dimensions?.breadth || 10),
+      height: Number(editingProduct.height || editingProduct.dimensions?.height || 5),
+      dimensions: {
+        length: Number(editingProduct.length || editingProduct.dimensions?.length || 15),
+        breadth: Number(editingProduct.breadth || editingProduct.dimensions?.breadth || 10),
+        height: Number(editingProduct.height || editingProduct.dimensions?.height || 5),
+      }
+    };
+
     if (editingProduct.id) {
-      updateProduct(editingProduct.id, editingProduct);
+      updateProduct(editingProduct.id, payload);
     } else {
-      addProduct(editingProduct);
+      addProduct(payload);
     }
     setEditingProduct(null);
   };
@@ -291,6 +310,10 @@ export const Products = () => {
                     <td className="table-td max-w-[200px]">
                       <p className="text-xs text-slate-300 truncate">{p.material || 'Handcrafted Fabric & Zari'}</p>
                       <p className="text-[10px] text-slate-500 truncate">{p.occasion || 'Festival, Wedding & Craft'}</p>
+                      <div className="flex items-center gap-1 mt-1 text-[10px] font-mono text-indigo-300 bg-indigo-950/40 px-1.5 py-0.5 rounded border border-indigo-500/20 w-fit" title="Shipping Weight & Dimensions">
+                        <Truck className="w-2.5 h-2.5 text-indigo-400 shrink-0" />
+                        <span>{p.weight !== undefined ? p.weight : 0.5}kg • {p.length || 15}×{p.breadth || 10}×{p.height || 5}cm</span>
+                      </div>
                     </td>
 
                     {/* Price & Discount */}
@@ -420,7 +443,7 @@ export const Products = () => {
               {[
                 { id: 'basic', label: '1. Basic Info' },
                 { id: 'media', label: `2. Photos & Gallery (${editingProduct.images?.length || 0})` },
-                { id: 'pricing', label: '3. Pricing & Stock' },
+                { id: 'pricing', label: '3. Pricing, Stock & Shipping' },
                 { id: 'variants', label: '4. Colors & Sizes' },
                 { id: 'details', label: '5. Description & Specs' },
                 { id: 'flags', label: '6. Badges & Special Flags' }
@@ -664,6 +687,105 @@ export const Products = () => {
                         placeholder="e.g. 20 Patches (₹9.95 / count)"
                         className="admin-input w-full text-xs"
                       />
+                    </div>
+                  </div>
+
+                  {/* Shipping Weight & Dimensions for Shiprocket Courier Calculation */}
+                  <div className="pt-3.5 border-t border-slate-800 space-y-2">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                      <label className="font-bold text-indigo-300 flex items-center gap-1.5 text-xs">
+                        <Truck className="w-3.5 h-3.5 text-indigo-400" />
+                        Shipping Specifications (Weight & Package Dimensions)
+                      </label>
+                      <span className="text-[10px] text-amber-400 font-mono font-bold bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20 w-fit">
+                        Required for accurate courier rate & shipment dispatch
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-400">
+                      Enter the single packed item weight in kg (e.g. 0.25 kg = 250g) and outer box dimensions in cm.
+                    </p>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
+                      <div>
+                        <label className="font-semibold text-slate-300 block mb-1 text-[11px]">Weight (kg) *</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0.01"
+                          value={editingProduct.weight !== undefined && editingProduct.weight !== null ? editingProduct.weight : 0.5}
+                          onChange={(e) => setEditingProduct({ ...editingProduct, weight: parseFloat(e.target.value) || 0.1 })}
+                          placeholder="e.g. 0.5"
+                          className="admin-input w-full text-xs font-mono"
+                          required
+                        />
+                        <span className="text-[10px] text-slate-500">e.g. 0.5 kg (500g)</span>
+                      </div>
+
+                      <div>
+                        <label className="font-semibold text-slate-300 block mb-1 text-[11px]">Length (cm) *</label>
+                        <input
+                          type="number"
+                          step="0.5"
+                          min="1"
+                          value={editingProduct.length !== undefined && editingProduct.length !== null ? editingProduct.length : (editingProduct.dimensions?.length || 15)}
+                          onChange={(e) => {
+                            const val = parseFloat(e.target.value) || 10;
+                            setEditingProduct({
+                              ...editingProduct,
+                              length: val,
+                              dimensions: { ...(editingProduct.dimensions || {}), length: val }
+                            });
+                          }}
+                          placeholder="e.g. 15"
+                          className="admin-input w-full text-xs font-mono"
+                          required
+                        />
+                        <span className="text-[10px] text-slate-500">Box length (cm)</span>
+                      </div>
+
+                      <div>
+                        <label className="font-semibold text-slate-300 block mb-1 text-[11px]">Breadth (cm) *</label>
+                        <input
+                          type="number"
+                          step="0.5"
+                          min="1"
+                          value={editingProduct.breadth !== undefined && editingProduct.breadth !== null ? editingProduct.breadth : (editingProduct.dimensions?.breadth || 10)}
+                          onChange={(e) => {
+                            const val = parseFloat(e.target.value) || 10;
+                            setEditingProduct({
+                              ...editingProduct,
+                              breadth: val,
+                              dimensions: { ...(editingProduct.dimensions || {}), breadth: val }
+                            });
+                          }}
+                          placeholder="e.g. 10"
+                          className="admin-input w-full text-xs font-mono"
+                          required
+                        />
+                        <span className="text-[10px] text-slate-500">Box width (cm)</span>
+                      </div>
+
+                      <div>
+                        <label className="font-semibold text-slate-300 block mb-1 text-[11px]">Height (cm) *</label>
+                        <input
+                          type="number"
+                          step="0.5"
+                          min="1"
+                          value={editingProduct.height !== undefined && editingProduct.height !== null ? editingProduct.height : (editingProduct.dimensions?.height || 5)}
+                          onChange={(e) => {
+                            const val = parseFloat(e.target.value) || 5;
+                            setEditingProduct({
+                              ...editingProduct,
+                              height: val,
+                              dimensions: { ...(editingProduct.dimensions || {}), height: val }
+                            });
+                          }}
+                          placeholder="e.g. 5"
+                          className="admin-input w-full text-xs font-mono"
+                          required
+                        />
+                        <span className="text-[10px] text-slate-500">Box height (cm)</span>
+                      </div>
                     </div>
                   </div>
                 </div>
