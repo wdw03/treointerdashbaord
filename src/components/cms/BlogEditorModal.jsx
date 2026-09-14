@@ -24,17 +24,12 @@ import {
   AlertCircle,
   ImagePlus,
   Type,
-  Eye
+  Eye,
+  Check,
+  CheckCircle2,
+  HelpCircle,
+  ExternalLink
 } from 'lucide-react';
-
-const SUGGESTED_BLOG_IMAGES = [
-  { label: 'Peacock Zardosi', url: '/products/peacock-real-feathers-pair-1.jpg' },
-  { label: 'Hammered Copper', url: '/products/hammered-copper-bottle-1.jpg' },
-  { label: 'Pooja Thali & Diya', url: '/products/pooja-thali-brass-diya-1.jpg' },
-  { label: 'Lotus Kamal Aasan', url: '/products/lotus-kamal-aasan-1.jpg' },
-  { label: 'Pure Cotton Gamcha', url: '/products/pure-cotton-gamcha-red-1.jpg' },
-  { label: 'Shreenathji Devotion', url: '/products/shreenathji-statement-patch-1.jpg' }
-];
 
 const CATEGORY_OPTIONS = [
   'Artisan Heritage',
@@ -49,7 +44,7 @@ const CATEGORY_OPTIONS = [
 ];
 
 export const BlogEditorModal = ({
-  blog,
+  blog = null,
   isOpen,
   onSave,
   onClose
@@ -59,12 +54,23 @@ export const BlogEditorModal = ({
   const [activeTab, setActiveTab] = useState('content');
   const [tagInput, setTagInput] = useState('');
   const [customCategory, setCustomCategory] = useState('');
-  const [uploading, setUploading] = useState(false);
+  const [uploadingCover, setUploadingCover] = useState(false);
+  const [uploadingAuthor, setUploadingAuthor] = useState(false);
   const [uploadingInline, setUploadingInline] = useState(false);
   const [previewMode, setPreviewMode] = useState(false);
+  const [showAdvancedUrl, setShowAdvancedUrl] = useState(false);
+
+  // In-line Insert Image Modal State
+  const [insertImageModalOpen, setInsertImageModalOpen] = useState(false);
+  const [inlineFile, setInlineFile] = useState(null);
+  const [inlineFilePreview, setInlineFilePreview] = useState('');
+  const [inlineAltText, setInlineAltText] = useState('');
+  const [inlineCaption, setInlineCaption] = useState('');
+
   const contentRef = useRef(null);
   const coverFileRef = useRef(null);
-  const inlineFileRef = useRef(null);
+  const authorFileRef = useRef(null);
+  const inlineDialogFileRef = useRef(null);
 
   const [formData, setFormData] = useState({
     title: blog?.title || '',
@@ -76,7 +82,7 @@ export const BlogEditorModal = ({
     date: blog?.date || new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
     author: blog?.author || 'Trio Enterprises Editorial',
     authorRole: blog?.authorRole || blog?.author_role || 'Heritage Crafts Curator',
-    authorImage: blog?.authorImage || blog?.author_image || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80',
+    authorImage: blog?.authorImage || blog?.author_image || 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=120&auto=format&fit=crop&q=80',
     image: blog?.image || '/products/peacock-real-feathers-pair-1.jpg',
     imageAlt: blog?.imageAlt || blog?.image_alt || '',
     tags: blog?.tags || ['Handmade', 'Indian Craft', 'Heritage'],
@@ -108,21 +114,28 @@ export const BlogEditorModal = ({
     setFormData({ ...formData, tags: formData.tags.filter((t) => t !== tagToRemove) });
   };
 
-  // =================== IMAGE UPLOAD ===================
+  // =================== COVER IMAGE UPLOAD ===================
   const handleCoverUpload = useCallback(async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    setUploading(true);
+
+    setUploadingCover(true);
     try {
-      const result = await adminApi.uploadBlogImage(file, formData.imageAlt || formData.title);
+      const alt = formData.imageAlt || formData.title || 'Featured Blog Cover';
+      const result = await adminApi.uploadBlogImage(file, alt);
       if (result?.url) {
-        setFormData(prev => ({ ...prev, image: result.url }));
+        setFormData(prev => ({
+          ...prev,
+          image: result.url,
+          imageAlt: prev.imageAlt || file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ')
+        }));
       }
     } catch (err) {
       console.error('Cover upload error:', err);
       alert('Failed to upload cover image: ' + err.message);
     } finally {
-      setUploading(false);
+      setUploadingCover(false);
+      if (coverFileRef.current) coverFileRef.current.value = '';
     }
   }, [formData.imageAlt, formData.title]);
 
@@ -139,25 +152,79 @@ export const BlogEditorModal = ({
     }
   }, []);
 
-  const handleInlineImageUpload = useCallback(async (e) => {
+  // =================== AUTHOR AVATAR UPLOAD ===================
+  const handleAuthorPhotoUpload = useCallback(async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    setUploadingAuthor(true);
+    try {
+      const result = await adminApi.uploadBlogImage(file, (formData.author || 'Author') + ' photo');
+      if (result?.url) {
+        setFormData(prev => ({ ...prev, authorImage: result.url }));
+      }
+    } catch (err) {
+      console.error('Author photo upload error:', err);
+      alert('Failed to upload author photo: ' + err.message);
+    } finally {
+      setUploadingAuthor(false);
+      if (authorFileRef.current) authorFileRef.current.value = '';
+    }
+  }, [formData.author]);
+
+  // =================== INLINE IMAGE MODAL UPLOAD ===================
+  const handleInlineFileSelect = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setInlineFile(file);
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      setInlineFilePreview(ev.target.result);
+    };
+    reader.readAsDataURL(file);
+
+    // Auto suggest alt text from filename if empty
+    if (!inlineAltText) {
+      const suggested = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
+      setInlineAltText(suggested);
+    }
+  };
+
+  const handleInsertInlineImageSubmit = async (e) => {
+    e.preventDefault();
+    if (!inlineFile) {
+      alert('Please select an image file to upload.');
+      return;
+    }
+    if (!inlineAltText.trim()) {
+      alert('Please enter an Alt Tag for the image (important for SEO).');
+      return;
+    }
+
     setUploadingInline(true);
     try {
-      const alt = prompt('Enter alt text for this image (important for SEO):') || 'Blog image';
-      const result = await adminApi.uploadBlogImage(file, alt);
+      const result = await adminApi.uploadBlogImage(inlineFile, inlineAltText.trim());
       if (result?.url) {
-        const imgTag = `\n<figure>\n  <img src="${result.url}" alt="${alt}" style="max-width:100%;border-radius:12px;" />\n  <figcaption>${alt}</figcaption>\n</figure>\n`;
-        insertAtCursor(imgTag);
+        const alt = inlineAltText.trim();
+        const caption = inlineCaption.trim();
+        const figureHtml = `\n<figure class="my-6 block text-center">\n  <img src="${result.url}" alt="${alt}" class="w-full max-w-2xl mx-auto rounded-2xl shadow-md border border-stone-200 dark:border-stone-800" loading="lazy" />${
+          caption ? `\n  <figcaption class="text-xs text-stone-500 mt-2 italic">${caption}</figcaption>` : ''
+        }\n</figure>\n`;
+
+        insertAtCursor(figureHtml);
+        setInsertImageModalOpen(false);
+        setInlineFile(null);
+        setInlineFilePreview('');
+        setInlineAltText('');
+        setInlineCaption('');
       }
     } catch (err) {
       console.error('Inline image upload error:', err);
-      alert('Failed to upload image: ' + err.message);
+      alert('Failed to upload image to Supabase: ' + err.message);
     } finally {
       setUploadingInline(false);
-      if (inlineFileRef.current) inlineFileRef.current.value = '';
     }
-  }, []);
+  };
 
   // =================== FORMATTING TOOLBAR ===================
   const insertAtCursor = (text) => {
@@ -204,12 +271,12 @@ export const BlogEditorModal = ({
   };
 
   const insertLink = () => {
-    const url = prompt('Enter the URL (e.g. https://trioenterprises.in/blog/...):');
+    const url = prompt('Enter the destination URL:');
     if (!url) return;
     const textarea = contentRef.current;
     const start = textarea?.selectionStart || 0;
     const end = textarea?.selectionEnd || 0;
-    const selectedText = formData.content.substring(start, end) || 'Link Text';
+    const selectedText = formData.content.substring(start, end) || 'Click Here';
     const linkTag = `<a href="${url}" target="_blank" rel="noopener">${selectedText}</a>`;
     const before = formData.content.substring(0, start);
     const after = formData.content.substring(end);
@@ -232,314 +299,799 @@ export const BlogEditorModal = ({
   const formatActions = [
     { icon: Bold, label: 'Bold', action: () => wrapSelection('<strong>', '</strong>') },
     { icon: Italic, label: 'Italic', action: () => wrapSelection('<em>', '</em>') },
-    { icon: Heading2, label: 'H2', action: () => insertHeading(2) },
-    { icon: Heading3, label: 'H3', action: () => insertHeading(3) },
+    { icon: Heading2, label: 'H2 Heading', action: () => insertHeading(2) },
+    { icon: Heading3, label: 'H3 Heading', action: () => insertHeading(3) },
     { icon: Quote, label: 'Blockquote', action: () => wrapSelection('<blockquote>', '</blockquote>') },
-    { icon: List, label: 'UL List', action: () => insertAtCursor('\n<ul>\n  <li>Item 1</li>\n  <li>Item 2</li>\n</ul>\n') },
-    { icon: ListOrdered, label: 'OL List', action: () => insertAtCursor('\n<ol>\n  <li>Step 1</li>\n  <li>Step 2</li>\n</ol>\n') },
+    { icon: List, label: 'Bullet List', action: () => insertAtCursor('\n<ul>\n  <li>Point 1</li>\n  <li>Point 2</li>\n</ul>\n') },
+    { icon: ListOrdered, label: 'Numbered List', action: () => insertAtCursor('\n<ol>\n  <li>Step 1</li>\n  <li>Step 2</li>\n</ol>\n') },
     { icon: LinkIcon, label: 'External Link', action: insertLink },
-    { icon: FileText, label: 'Internal Backlink', action: insertBacklink },
-    { icon: ImagePlus, label: 'Insert Image', action: () => inlineFileRef.current?.click() },
+    { icon: FileText, label: 'Internal Link', action: insertBacklink },
+    {
+      icon: ImagePlus,
+      label: 'Upload & Insert Image',
+      action: () => {
+        setInsertImageModalOpen(true);
+        setInlineFile(null);
+        setInlineFilePreview('');
+        setInlineAltText('');
+        setInlineCaption('');
+      },
+      highlight: true
+    },
   ];
 
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!formData.title.trim()) {
-      alert('Blog Title is required!');
+      alert('Article Title is required!');
       return;
     }
+
     onSave({
-      ...(blog || {}),
+      ...blog,
       ...formData,
-      slug: formData.slug.trim() || formData.title.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
-      seoTitle: formData.seoTitle.trim() || formData.title,
-      seoDescription: formData.seoDescription.trim() || formData.excerpt,
       imageAlt: formData.imageAlt || formData.title,
       image_alt: formData.imageAlt || formData.title
     });
     onClose();
   };
 
-  const seoTitleLen = formData.seoTitle.length;
-  const seoDescLen = formData.seoDescription.length;
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md overflow-y-auto select-none animate-fadeIn">
-      <div className="bg-slate-900 border border-slate-700/80 rounded-2xl w-full max-w-5xl max-h-[94vh] flex flex-col shadow-2xl overflow-hidden animate-scaleIn">
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-950/70">
-          <div>
-            <h3 className="font-bold text-white text-base flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-indigo-400" />
-              {blog ? `Edit: ${blog.title?.substring(0, 40)}...` : 'Write New Craft Journal Article'}
-            </h3>
-            <p className="text-xs text-slate-400">Manage article body, imagery, author bio, backlinks and SEO search rankings</p>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-md overflow-y-auto animate-fadeIn">
+      <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-4xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden my-auto">
+        
+        {/* MODAL HEADER */}
+        <div className="p-4 sm:p-5 border-b border-slate-800 flex items-center justify-between bg-slate-950/60 shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-indigo-600/20 border border-indigo-500/30 text-indigo-400 flex items-center justify-center shadow-inner">
+              <Sparkles className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="font-bold text-white text-base sm:text-lg flex items-center gap-2">
+                {blog ? 'Edit Blog Article' : 'Write New Journal Article'}
+                <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 font-normal border border-indigo-500/20">
+                  WordPress-Style CMS
+                </span>
+              </h3>
+              <p className="text-xs text-slate-400">
+                Direct image uploads to database CDN, image alt tags, rich formatting & SEO rank controls
+              </p>
+            </div>
           </div>
-
-          <div className="flex items-center gap-2">
-            <button type="button" onClick={onClose} className="btn-secondary py-1.5 px-3 text-xs">Cancel</button>
-            <button type="button" onClick={handleSubmit} className="btn-primary py-1.5 px-4 text-xs font-bold">
-              <Save className="w-3.5 h-3.5" /> {blog ? 'Update Article' : 'Publish Article'}
-            </button>
-          </div>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
 
-        {/* Navigation Tabs */}
-        <div className="flex items-center gap-2 px-6 py-2.5 bg-slate-950/40 border-b border-slate-800 text-xs overflow-x-auto no-scrollbar">
+        {/* TABS NAVIGATION */}
+        <div className="flex border-b border-slate-800 px-4 sm:px-6 bg-slate-950/30 overflow-x-auto scrollbar-none shrink-0">
           {[
-            { id: 'content', label: '1. Story & Content', icon: FileText },
-            { id: 'author_media', label: '2. Author & Cover Media', icon: User },
-            { id: 'tags', label: '3. Category & Tags', icon: Tag },
-            { id: 'seo', label: '4. SEO & Google Snippet', icon: Search }
+            { id: 'content', label: 'Article & Media', icon: FileText },
+            { id: 'author_media', label: 'Cover Image & Author', icon: ImageIcon, badge: formData.image ? 'Uploaded' : 'Required' },
+            { id: 'tags', label: 'Category & Tags', icon: Tag },
+            { id: 'seo', label: 'SEO & Google SERP', icon: Globe }
           ].map((tab) => {
             const Icon = tab.icon;
+            const isActive = activeTab === tab.id;
             return (
               <button
                 key={tab.id}
-                type="button"
                 onClick={() => setActiveTab(tab.id)}
-                className={`px-3 py-1.5 rounded-lg font-semibold flex items-center gap-1.5 whitespace-nowrap transition-colors ${activeTab === tab.id ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-white'}`}
+                className={`flex items-center gap-2 py-3 px-4 font-bold text-xs border-b-2 transition-all whitespace-nowrap ${
+                  isActive
+                    ? 'border-indigo-500 text-indigo-400 bg-indigo-500/5'
+                    : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/30'
+                }`}
               >
-                <Icon className="w-3.5 h-3.5" /> {tab.label}
+                <Icon className="w-3.5 h-3.5" />
+                <span>{tab.label}</span>
+                {tab.badge && (
+                  <span className={`text-[9px] px-1.5 py-0.2 rounded font-bold ${
+                    formData.image
+                      ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                      : 'bg-amber-500/10 text-amber-400'
+                  }`}>
+                    {tab.badge}
+                  </span>
+                )}
               </button>
             );
           })}
         </div>
 
-        {/* Form Body */}
-        <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-5 text-xs flex-1">
-          {/* TAB 1: STORY & CONTENT */}
+        {/* FORM CONTENT */}
+        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
+          
+          {/* TAB 1: ARTICLE & MEDIA */}
           {activeTab === 'content' && (
             <div className="space-y-4 animate-fadeIn">
               <div>
                 <label className="font-semibold text-slate-300 block mb-1">Article Headline / Title *</label>
-                <input type="text" value={formData.title} onChange={handleTitleChange} placeholder="e.g. The Sacred Art of Zardosi: From Mughal Ateliers to Modern Bridal Couture" className="admin-input w-full text-xs font-semibold" required />
+                <input
+                  type="text"
+                  value={formData.title}
+                  onChange={handleTitleChange}
+                  placeholder="e.g. The Sacred Art of Zardosi: From Mughal Ateliers to Modern Couture"
+                  className="admin-input w-full text-sm font-semibold"
+                  required
+                />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="font-semibold text-slate-300 block mb-1">URL Slug</label>
-                  <input type="text" value={formData.slug} onChange={(e) => setFormData({ ...formData, slug: e.target.value })} placeholder="sacred-art-of-zardosi" className="admin-input w-full text-xs font-mono" />
+                  <label className="font-semibold text-slate-300 block mb-1">URL Slug (Auto-generated)</label>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs text-slate-500 font-mono">/blog/</span>
+                    <input
+                      type="text"
+                      value={formData.slug}
+                      onChange={(e) => setFormData({ ...formData, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-') })}
+                      className="admin-input w-full text-xs font-mono"
+                      required
+                    />
+                  </div>
                 </div>
+
                 <div>
-                  <label className="font-semibold text-slate-300 block mb-1">Category</label>
+                  <label className="font-semibold text-slate-300 block mb-1">Publication Status</label>
                   <select
-                    value={CATEGORY_OPTIONS.includes(formData.category) ? formData.category : '__custom__'}
-                    onChange={(e) => { if (e.target.value !== '__custom__') setFormData({ ...formData, category: e.target.value }); else setCustomCategory(formData.category); }}
-                    className="admin-select w-full text-xs"
+                    value={formData.status}
+                    onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                    className="admin-input w-full text-xs font-bold"
                   >
-                    {CATEGORY_OPTIONS.map(cat => (<option key={cat} value={cat}>{cat}</option>))}
-                    {!CATEGORY_OPTIONS.includes(formData.category) && (<option value="__custom__">{formData.category} (Custom)</option>)}
-                    <option value="__custom__">+ Custom Category...</option>
-                  </select>
-                  {(!CATEGORY_OPTIONS.includes(formData.category) || customCategory) && (
-                    <input type="text" value={CATEGORY_OPTIONS.includes(formData.category) ? customCategory : formData.category} onChange={(e) => { setCustomCategory(e.target.value); setFormData({ ...formData, category: e.target.value }); }} placeholder="Enter custom category name" className="admin-input w-full text-xs mt-1.5" />
-                  )}
-                </div>
-                <div>
-                  <label className="font-semibold text-slate-300 block mb-1">Publishing Status</label>
-                  <select value={formData.status} onChange={(e) => setFormData({ ...formData, status: e.target.value })} className="admin-select w-full text-xs font-bold">
-                    <option value="Published">Published (Live on Website)</option>
-                    <option value="Draft">Draft (Hidden)</option>
+                    <option value="Published">🟢 Published (Live on Website)</option>
+                    <option value="Draft">🟡 Draft (Hidden from Customers)</option>
                   </select>
                 </div>
               </div>
 
               <div>
-                <label className="font-semibold text-slate-300 block mb-1">Excerpt / Hook Summary</label>
-                <textarea rows={2} value={formData.excerpt} onChange={(e) => setFormData({ ...formData, excerpt: e.target.value })} placeholder="Short introductory summary shown on the blog list cards..." className="admin-input w-full text-xs leading-relaxed" />
+                <label className="font-semibold text-slate-300 block mb-1">Summary / Excerpt (Lead Paragraph) *</label>
+                <textarea
+                  rows={2}
+                  value={formData.excerpt}
+                  onChange={(e) => setFormData({ ...formData, excerpt: e.target.value })}
+                  placeholder="A compelling 1-2 sentence overview of what the reader will discover..."
+                  className="admin-input w-full text-xs leading-relaxed"
+                  required
+                />
               </div>
 
-              {/* WordPress-like Formatting Toolbar */}
+              {/* RICH TEXT FORMATTING TOOLBAR */}
               <div>
-                <label className="font-semibold text-slate-300 block mb-1">Article Body Content (HTML / Rich Format)</label>
-                <div className="flex items-center gap-0.5 flex-wrap bg-slate-950 border border-slate-800 rounded-t-xl px-2 py-1.5">
-                  {formatActions.map((action, idx) => {
-                    const Icon = action.icon;
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="font-semibold text-slate-300 text-xs flex items-center gap-1.5">
+                    <Type className="w-3.5 h-3.5 text-indigo-400" />
+                    Article Body & In-Line Media (HTML Supported)
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setInsertImageModalOpen(true)}
+                    className="text-[11px] font-bold text-indigo-400 hover:text-indigo-300 flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-500/10 border border-indigo-500/20 hover:bg-indigo-500/20 transition-all"
+                  >
+                    <ImagePlus className="w-3.5 h-3.5" /> Upload Image with Alt Tag
+                  </button>
+                </div>
+
+                <div className="bg-slate-950 border border-slate-800 rounded-t-xl p-2 flex items-center gap-1 flex-wrap">
+                  {formatActions.map((act, i) => {
+                    const Icon = act.icon;
                     return (
-                      <button key={idx} type="button" onClick={action.action} className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors" title={action.label}>
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={act.action}
+                        className={`p-1.5 rounded-lg transition-colors flex items-center gap-1 text-[11px] ${
+                          act.highlight
+                            ? 'bg-indigo-600 text-white font-bold hover:bg-indigo-500 shadow-sm'
+                            : 'text-slate-300 hover:text-white hover:bg-slate-800'
+                        }`}
+                        title={act.label}
+                      >
                         <Icon className="w-3.5 h-3.5" />
+                        <span className="hidden sm:inline">{act.label}</span>
                       </button>
                     );
                   })}
+
                   <div className="w-px h-5 bg-slate-700 mx-1" />
-                  <button type="button" onClick={() => setPreviewMode(!previewMode)} className={`p-1.5 rounded-lg transition-colors flex items-center gap-1 text-[10px] font-bold ${previewMode ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`} title="Preview HTML">
-                    <Eye className="w-3.5 h-3.5" /> Preview
+                  
+                  <button
+                    type="button"
+                    onClick={() => setPreviewMode(!previewMode)}
+                    className={`p-1.5 rounded-lg transition-colors flex items-center gap-1 text-[11px] font-bold ${
+                      previewMode ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                    }`}
+                    title="Toggle HTML Live Preview"
+                  >
+                    <Eye className="w-3.5 h-3.5" /> {previewMode ? 'Edit Raw' : 'Preview'}
                   </button>
-                  {uploadingInline && (<span className="text-[10px] text-indigo-400 ml-2 animate-pulse">Uploading image...</span>)}
                 </div>
 
-                <input ref={inlineFileRef} type="file" accept="image/*" onChange={handleInlineImageUpload} className="hidden" />
-
                 {previewMode ? (
-                  <div className="bg-slate-950 border border-t-0 border-slate-800 rounded-b-xl p-4 min-h-[200px] prose prose-invert prose-sm max-w-none text-xs" dangerouslySetInnerHTML={{ __html: formData.content || '<p class="text-slate-500">No content to preview yet...</p>' }} />
+                  <div
+                    className="bg-slate-950 border border-t-0 border-slate-800 rounded-b-xl p-4 min-h-[260px] prose prose-invert prose-sm max-w-none text-xs leading-relaxed overflow-y-auto"
+                    dangerouslySetInnerHTML={{ __html: formData.content || '<p class="text-slate-500">No content written yet...</p>' }}
+                  />
                 ) : (
-                  <textarea ref={contentRef} rows={10} value={formData.content} onChange={(e) => setFormData({ ...formData, content: e.target.value })} placeholder="<h2>Section Heading</h2><p>Article narrative...</p>" className="admin-input w-full text-xs font-mono leading-relaxed border-t-0 rounded-t-none" />
+                  <textarea
+                    ref={contentRef}
+                    rows={12}
+                    value={formData.content}
+                    onChange={(e) => setFormData({ ...formData, content: e.target.value })}
+                    placeholder="<h2>Heading 2</h2><p>Article narrative goes here...</p>"
+                    className="admin-input w-full text-xs font-mono leading-relaxed border-t-0 rounded-t-none"
+                  />
                 )}
-                <div className="flex items-center justify-between mt-1">
-                  <span className="text-[10px] text-slate-500">Supports &lt;h2&gt;, &lt;h3&gt;, &lt;p&gt;, &lt;blockquote&gt;, &lt;ul&gt;, &lt;li&gt;, &lt;a&gt;, &lt;img&gt;, &lt;figure&gt;</span>
-                  <span className="text-[10px] text-slate-500">{formData.content.length} characters</span>
+
+                <div className="flex items-center justify-between mt-1 text-[10px] text-slate-500">
+                  <span>Supports &lt;h2&gt;, &lt;h3&gt;, &lt;p&gt;, &lt;blockquote&gt;, &lt;figure&gt;, &lt;img alt="..."&gt;, &lt;a&gt;</span>
+                  <span>{formData.content.length} characters</span>
                 </div>
               </div>
             </div>
           )}
 
-          {/* TAB 2: AUTHOR & MEDIA */}
+          {/* TAB 2: COVER IMAGE & AUTHOR */}
           {activeTab === 'author_media' && (
-            <div className="space-y-4 animate-fadeIn">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="font-semibold text-slate-300 block mb-1">Author Full Name</label>
-                  <input type="text" value={formData.author} onChange={(e) => setFormData({ ...formData, author: e.target.value })} placeholder="e.g. Meera Sen" className="admin-input w-full text-xs" />
+            <div className="space-y-6 animate-fadeIn">
+              
+              {/* FEATURED COVER IMAGE CARD */}
+              <div className="admin-card p-5 space-y-4 border-indigo-500/30">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+                  <div className="flex items-center gap-2">
+                    <ImageIcon className="w-4 h-4 text-indigo-400" />
+                    <h4 className="font-bold text-white text-sm">Featured Cover Image & Alt Tag</h4>
+                  </div>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 font-semibold">
+                    Saved in Supabase Storage
+                  </span>
                 </div>
-                <div>
-                  <label className="font-semibold text-slate-300 block mb-1">Author Title / Role</label>
-                  <input type="text" value={formData.authorRole} onChange={(e) => setFormData({ ...formData, authorRole: e.target.value })} placeholder="e.g. Heritage Textile Curator" className="admin-input w-full text-xs" />
-                </div>
-              </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="font-semibold text-slate-300 block mb-1">Author Avatar URL</label>
-                  <input type="text" value={formData.authorImage} onChange={(e) => setFormData({ ...formData, authorImage: e.target.value })} className="admin-input w-full text-xs font-mono" />
-                </div>
-                <div>
-                  <label className="font-semibold text-slate-300 block mb-1">Estimated Reading Time</label>
-                  <input type="text" value={formData.readTime} onChange={(e) => setFormData({ ...formData, readTime: e.target.value })} placeholder="e.g. 6 min read" className="admin-input w-full text-xs" />
-                </div>
-              </div>
+                {/* Upload Zone or Current Image Preview */}
+                <div className="grid grid-cols-1 sm:grid-cols-12 gap-4 items-start">
+                  
+                  {/* Image Preview Box */}
+                  <div className="sm:col-span-5">
+                    <div className="relative aspect-[16/10] rounded-2xl overflow-hidden bg-slate-950 border-2 border-slate-800 shadow-lg group">
+                      {formData.image ? (
+                        <>
+                          <img
+                            src={formData.image}
+                            alt={formData.imageAlt || 'Cover Preview'}
+                            className="w-full h-full object-cover"
+                          />
+                          <div className="absolute inset-0 bg-slate-950/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 p-2">
+                            <button
+                              type="button"
+                              onClick={() => coverFileRef.current?.click()}
+                              className="btn-primary py-1 px-2.5 text-[11px] font-bold flex items-center gap-1 shadow-lg"
+                            >
+                              <Upload className="w-3 h-3" /> Change File
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setFormData({ ...formData, image: '' })}
+                              className="p-1 rounded-lg bg-rose-600/80 text-white hover:bg-rose-600 transition-colors"
+                              title="Remove Image"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                          <div className="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-slate-950/80 backdrop-blur-md text-emerald-400 text-[9px] font-bold border border-emerald-500/30 flex items-center gap-1">
+                            <CheckCircle2 className="w-3 h-3" /> CDN Active
+                          </div>
+                        </>
+                      ) : (
+                        <div className="w-full h-full flex flex-col items-center justify-center p-4 text-center text-slate-500">
+                          <ImageIcon className="w-8 h-8 mb-1 text-slate-600" />
+                          <span className="text-xs">No cover image uploaded</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
 
-              {/* Cover Image Upload */}
-              <div>
-                <label className="font-semibold text-slate-300 block mb-1.5"><ImageIcon className="w-3.5 h-3.5 inline mr-1 text-indigo-400" />Featured Cover Image *</label>
-                <div onDrop={handleCoverDrop} onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }} onClick={() => !uploading && coverFileRef.current?.click()} className={`border-2 border-dashed rounded-xl p-4 text-center cursor-pointer transition-all ${uploading ? 'border-indigo-500 bg-indigo-500/5' : 'border-slate-700 hover:border-indigo-500 hover:bg-slate-800/50'}`}>
-                  <input ref={coverFileRef} type="file" accept="image/*" onChange={handleCoverUpload} className="hidden" />
-                  {uploading ? (
-                    <div className="flex items-center justify-center gap-2 text-indigo-400">
-                      <div className="w-4 h-4 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
-                      <span className="text-xs font-semibold">Uploading to CDN...</span>
+                  {/* Upload Controls & Alt Tag Input */}
+                  <div className="sm:col-span-7 space-y-3.5">
+                    
+                    {/* Upload Drag & Drop Trigger */}
+                    <div>
+                      <input
+                        ref={coverFileRef}
+                        type="file"
+                        accept="image/*"
+                        onChange={handleCoverUpload}
+                        className="hidden"
+                      />
+
+                      <div
+                        onDrop={handleCoverDrop}
+                        onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                        onClick={() => !uploadingCover && coverFileRef.current?.click()}
+                        className={`border-2 border-dashed rounded-2xl p-4 text-center cursor-pointer transition-all ${
+                          uploadingCover
+                            ? 'border-indigo-500 bg-indigo-500/10'
+                            : 'border-slate-700 hover:border-indigo-400 hover:bg-slate-800/40'
+                        }`}
+                      >
+                        {uploadingCover ? (
+                          <div className="flex items-center justify-center gap-2 text-indigo-400 py-3">
+                            <div className="w-5 h-5 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
+                            <span className="text-xs font-bold">Uploading to Supabase Storage CDN...</span>
+                          </div>
+                        ) : (
+                          <div className="space-y-1 py-1">
+                            <div className="w-9 h-9 rounded-xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center mx-auto mb-1">
+                              <Upload className="w-4 h-4" />
+                            </div>
+                            <p className="text-xs font-bold text-white">
+                              {formData.image ? 'Click or drag to replace image' : 'Click or drag & drop cover image file'}
+                            </p>
+                            <p className="text-[10px] text-slate-400">
+                              Uploads directly to Supabase CDN • PNG, JPG, WebP supported
+                            </p>
+                            <button
+                              type="button"
+                              className="btn-secondary py-1 px-3 text-[11px] font-bold mt-1 inline-flex items-center gap-1.5 pointer-events-none"
+                            >
+                              <Upload className="w-3 h-3" /> Browse Computer / Device
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  ) : (
-                    <div className="space-y-1">
-                      <Upload className="w-6 h-6 text-slate-500 mx-auto" />
-                      <p className="text-xs text-slate-400 font-semibold">Click or drag & drop cover image</p>
-                      <p className="text-[10px] text-slate-500">PNG, JPG, WebP supported • Max 5MB</p>
+
+                    {/* MANDATORY IMAGE ALT TAG */}
+                    <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-1">
+                      <label className="font-bold text-xs text-slate-200 flex items-center gap-1.5">
+                        <Tag className="w-3.5 h-3.5 text-indigo-400" />
+                        Cover Image Alt Tag (for Google SEO & Accessibility) *
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.imageAlt}
+                        onChange={(e) => setFormData({ ...formData, imageAlt: e.target.value })}
+                        placeholder="Describe what is in the image (e.g. Handcrafted peacock zardosi applique patch on deep green velvet)"
+                        className="admin-input w-full text-xs"
+                        required
+                      />
+                      {!formData.imageAlt ? (
+                        <p className="text-[10px] text-amber-400 flex items-center gap-1 mt-1 font-medium">
+                          <AlertCircle className="w-3 h-3 shrink-0" />
+                          Alt tag is required for Google Image search ranking and screen readers.
+                        </p>
+                      ) : (
+                        <p className="text-[10px] text-emerald-400 flex items-center gap-1 mt-1 font-medium">
+                          <Check className="w-3 h-3 shrink-0" />
+                          Alt tag configured and will be saved in the database blogs table.
+                        </p>
+                      )}
                     </div>
-                  )}
-                </div>
-                <div className="mt-2">
-                  <input type="text" value={formData.image} onChange={(e) => setFormData({ ...formData, image: e.target.value })} placeholder="Or paste image URL: /products/peacock-real-feathers-pair-1.jpg" className="admin-input w-full text-xs font-mono" />
-                </div>
-                <div className="mt-2">
-                  <label className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block mb-1">Image Alt Text (SEO) *</label>
-                  <input type="text" value={formData.imageAlt} onChange={(e) => setFormData({ ...formData, imageAlt: e.target.value })} placeholder="Describe the image for screen readers & Google (e.g. Handcrafted Zardosi peacock patch on velvet)" className="admin-input w-full text-xs" />
-                  {!formData.imageAlt && (<span className="text-[10px] text-amber-400 flex items-center gap-1 mt-0.5"><AlertCircle className="w-3 h-3" /> Alt text is important for SEO & accessibility</span>)}
-                </div>
-                <div className="mt-2">
-                  <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block mb-1">Quick Pick from Craft Library:</span>
-                  <div className="flex flex-wrap gap-1.5">
-                    {SUGGESTED_BLOG_IMAGES.map((img, i) => (
-                      <button key={i} type="button" onClick={() => setFormData({ ...formData, image: img.url })} className={`text-[10px] px-2 py-0.5 rounded-lg border transition-all ${formData.image === img.url ? 'bg-indigo-600 text-white border-indigo-400 font-bold' : 'bg-slate-800 text-slate-300 border-slate-700 hover:text-white'}`}>{img.label}</button>
-                    ))}
+
+                    {/* Optional URL Toggle (Collapsible for advanced use) */}
+                    <div>
+                      <button
+                        type="button"
+                        onClick={() => setShowAdvancedUrl(!showAdvancedUrl)}
+                        className="text-[10px] text-slate-500 hover:text-slate-400 flex items-center gap-1 underline"
+                      >
+                        {showAdvancedUrl ? 'Hide manual image URL' : 'Advanced: View or override image URL manually'}
+                      </button>
+                      {showAdvancedUrl && (
+                        <div className="mt-1.5 space-y-1 animate-fadeIn">
+                          <input
+                            type="text"
+                            value={formData.image}
+                            onChange={(e) => setFormData({ ...formData, image: e.target.value })}
+                            placeholder="https://gkskeljvgphslkzctjfp.supabase.co/..."
+                            className="admin-input w-full text-xs font-mono"
+                          />
+                        </div>
+                      )}
+                    </div>
+
                   </div>
                 </div>
               </div>
 
-              {/* Cover Preview */}
-              <div className="p-3 bg-slate-950 rounded-2xl border border-slate-800 flex items-center gap-4">
-                <div className="w-28 h-20 rounded-xl overflow-hidden border border-slate-700 bg-slate-900 shrink-0">
-                  <img src={formData.image} alt={formData.imageAlt || 'Cover Preview'} className="w-full h-full object-cover" />
+              {/* AUTHOR INFORMATION & AVATAR UPLOAD */}
+              <div className="admin-card p-5 space-y-4">
+                <div className="flex items-center gap-2 pb-2 border-b border-slate-800">
+                  <User className="w-4 h-4 text-indigo-400" />
+                  <h4 className="font-bold text-white text-sm">Author Profile & Credentials</h4>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <span className="text-[10px] text-indigo-400 font-bold uppercase block">{formData.category}</span>
-                  <h5 className="font-bold text-white text-xs truncate max-w-sm">{formData.title || 'Article Title'}</h5>
-                  <p className="text-[11px] text-slate-400">By {formData.author} • {formData.readTime}</p>
-                  {formData.imageAlt && (<p className="text-[10px] text-emerald-400/60 mt-0.5 truncate">Alt: {formData.imageAlt}</p>)}
+
+                <div className="grid grid-cols-1 sm:grid-cols-12 gap-4 items-center">
+                  
+                  {/* Author Avatar with Upload */}
+                  <div className="sm:col-span-4 flex items-center gap-3 p-3 rounded-2xl bg-slate-950 border border-slate-800">
+                    <input
+                      ref={authorFileRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleAuthorPhotoUpload}
+                      className="hidden"
+                    />
+                    
+                    <div className="relative w-12 h-12 rounded-full overflow-hidden border-2 border-indigo-500/40 bg-slate-900 shrink-0">
+                      <img
+                        src={formData.authorImage}
+                        alt={formData.author}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <button
+                        type="button"
+                        onClick={() => authorFileRef.current?.click()}
+                        disabled={uploadingAuthor}
+                        className="btn-secondary py-1 px-2.5 text-[10px] font-bold flex items-center gap-1"
+                      >
+                        <Upload className="w-3 h-3" />
+                        <span>{uploadingAuthor ? 'Uploading...' : 'Upload Photo'}</span>
+                      </button>
+                      <span className="text-[9px] text-slate-500 block">Avatar CDN upload</span>
+                    </div>
+                  </div>
+
+                  <div className="sm:col-span-4">
+                    <label className="font-semibold text-slate-300 block mb-1 text-xs">Author Full Name</label>
+                    <input
+                      type="text"
+                      value={formData.author}
+                      onChange={(e) => setFormData({ ...formData, author: e.target.value })}
+                      placeholder="e.g. Meera Sen"
+                      className="admin-input w-full text-xs font-semibold"
+                    />
+                  </div>
+
+                  <div className="sm:col-span-4">
+                    <label className="font-semibold text-slate-300 block mb-1 text-xs">Author Designation / Role</label>
+                    <input
+                      type="text"
+                      value={formData.authorRole}
+                      onChange={(e) => setFormData({ ...formData, authorRole: e.target.value })}
+                      placeholder="e.g. Heritage Textile Curator"
+                      className="admin-input w-full text-xs"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                  <div>
+                    <label className="font-semibold text-slate-300 block mb-1 text-xs">Publication Date</label>
+                    <input
+                      type="text"
+                      value={formData.date}
+                      onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                      placeholder="e.g. August 28, 2026"
+                      className="admin-input w-full text-xs"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="font-semibold text-slate-300 block mb-1 text-xs">Estimated Reading Time</label>
+                    <input
+                      type="text"
+                      value={formData.readTime}
+                      onChange={(e) => setFormData({ ...formData, readTime: e.target.value })}
+                      placeholder="e.g. 5 min read"
+                      className="admin-input w-full text-xs"
+                    />
+                  </div>
                 </div>
               </div>
+
             </div>
           )}
 
-          {/* TAB 3: TAGS & TAXONOMY */}
+          {/* TAB 3: CATEGORY & TAGS */}
           {activeTab === 'tags' && (
             <div className="space-y-4 animate-fadeIn">
               <div>
-                <label className="font-semibold text-slate-300 block mb-1">Add Article Tags</label>
-                <div className="flex gap-2">
-                  <input type="text" value={tagInput} onChange={(e) => setTagInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddTag(); } }} placeholder="Type tag (e.g. Zari, Bridal, Mandir Decor) and press Enter..." className="admin-input flex-1 text-xs" />
-                  <button type="button" onClick={handleAddTag} className="btn-secondary py-1.5 px-4 text-xs font-bold">Add Tag</button>
+                <label className="font-semibold text-slate-300 block mb-1">Article Category *</label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <select
+                      value={formData.category}
+                      onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                      className="admin-input w-full text-xs font-bold"
+                    >
+                      {CATEGORY_OPTIONS.map((cat) => (
+                        <option key={cat} value={cat}>{cat}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <input
+                      type="text"
+                      value={customCategory}
+                      onChange={(e) => setCustomCategory(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && customCategory.trim()) {
+                          e.preventDefault();
+                          setFormData({ ...formData, category: customCategory.trim() });
+                          setCustomCategory('');
+                        }
+                      }}
+                      placeholder="Or type a custom category & press Enter..."
+                      className="admin-input w-full text-xs"
+                    />
+                  </div>
                 </div>
               </div>
+
               <div>
-                <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block mb-2">Assigned Tags ({formData.tags.length}):</span>
-                <div className="flex flex-wrap gap-2">
-                  {formData.tags.map((tag) => (
-                    <span key={tag} className="bg-indigo-950/60 border border-indigo-500/30 text-indigo-300 text-xs px-2.5 py-1 rounded-lg flex items-center gap-1.5 font-medium">
-                      {tag}
-                      <button type="button" onClick={() => handleRemoveTag(tag)} className="text-indigo-400 hover:text-rose-400">×</button>
+                <label className="font-semibold text-slate-300 block mb-1">Article Tags (Topics & Themes)</label>
+                <div className="flex gap-2 mb-2">
+                  <input
+                    type="text"
+                    value={tagInput}
+                    onChange={(e) => setTagInput(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddTag(); } }}
+                    placeholder="Type tag (e.g. Zardosi, Bridal Wear, DIY) and press Enter"
+                    className="admin-input flex-1 text-xs"
+                  />
+                  <button type="button" onClick={handleAddTag} className="btn-secondary py-1.5 px-3 text-xs">
+                    Add Tag
+                  </button>
+                </div>
+
+                <div className="flex flex-wrap gap-1.5">
+                  {formData.tags.map((t, idx) => (
+                    <span
+                      key={idx}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 font-medium"
+                    >
+                      #{t}
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveTag(t)}
+                        className="hover:text-white p-0.5 rounded-full hover:bg-slate-800"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
                     </span>
                   ))}
                 </div>
               </div>
-              <div>
-                <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block mb-2">Popular Tag Suggestions:</span>
-                <div className="flex flex-wrap gap-1.5">
-                  {['Zardosi', 'Embroidery', 'Indian Craft', 'Bridal Fashion', 'Handmade', 'Copper', 'Ayurveda', 'Pooja', 'Diwali', 'Navratri', 'Wedding', 'DIY', 'Heritage', 'Karigar', 'Festive', 'Vedic'].map(tag => (
-                    <button key={tag} type="button" onClick={() => { if (!formData.tags.includes(tag)) setFormData(prev => ({ ...prev, tags: [...prev.tags, tag] })); }} disabled={formData.tags.includes(tag)} className={`text-[10px] px-2 py-0.5 rounded-lg border transition-all ${formData.tags.includes(tag) ? 'bg-emerald-600/20 text-emerald-400 border-emerald-500/30 cursor-not-allowed' : 'bg-slate-800 text-slate-300 border-slate-700 hover:text-white hover:border-indigo-500 cursor-pointer'}`}>+ {tag}</button>
-                  ))}
-                </div>
-              </div>
             </div>
           )}
 
-          {/* TAB 4: SEO & SEARCH SNIPPET */}
+          {/* TAB 4: SEO & GOOGLE SERP PREVIEW */}
           {activeTab === 'seo' && (
             <div className="space-y-4 animate-fadeIn">
-              <div>
-                <label className="font-semibold text-slate-300 block mb-1">Google Meta Title (Max 60 chars)</label>
-                <input type="text" value={formData.seoTitle} onChange={(e) => setFormData({ ...formData, seoTitle: e.target.value })} placeholder="Primary search engine title..." className="admin-input w-full text-xs" maxLength={70} />
-                <span className={`text-[10px] mt-0.5 block ${seoTitleLen > 60 ? 'text-rose-400 font-bold' : seoTitleLen > 50 ? 'text-amber-400' : 'text-slate-500'}`}>{seoTitleLen} / 60 characters {seoTitleLen > 60 ? '⚠ Too long!' : seoTitleLen >= 30 ? '✓ Good' : ''}</span>
-              </div>
-              <div>
-                <label className="font-semibold text-slate-300 block mb-1">Google Meta Description (Max 160 chars)</label>
-                <textarea rows={2} value={formData.seoDescription} onChange={(e) => setFormData({ ...formData, seoDescription: e.target.value })} placeholder="Search snippet summary..." className="admin-input w-full text-xs leading-relaxed" maxLength={200} />
-                <span className={`text-[10px] mt-0.5 block ${seoDescLen > 160 ? 'text-rose-400 font-bold' : seoDescLen > 140 ? 'text-amber-400' : 'text-slate-500'}`}>{seoDescLen} / 160 characters {seoDescLen > 160 ? '⚠ Too long!' : seoDescLen >= 80 ? '✓ Good' : ''}</span>
+              {/* GOOGLE SEARCH SNIPPET PREVIEW */}
+              <div className="admin-card p-4 space-y-2 border-indigo-500/30 bg-slate-950">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1 flex items-center gap-1.5">
+                  <Globe className="w-3 h-3 text-indigo-400" /> Google Search SERP Preview
+                </span>
+                <div className="space-y-1 p-3 bg-white dark:bg-[#1a1a1a] rounded-xl border border-slate-300 dark:border-slate-800">
+                  <div className="flex items-center gap-1.5 text-xs text-stone-600 dark:text-stone-400">
+                    <span>https://trioenterprises.in</span>
+                    <span>›</span>
+                    <span>blog</span>
+                    <span>›</span>
+                    <span className="font-mono">{formData.slug || 'article-slug'}</span>
+                  </div>
+                  <h4 className="text-sm font-medium text-[#1a0dab] dark:text-[#8ab4f8] hover:underline cursor-pointer truncate">
+                    {formData.seoTitle || formData.title || 'Your Article Title Goes Here'} | Trio Enterprises
+                  </h4>
+                  <p className="text-xs text-[#4d5156] dark:text-[#bdc1c6] line-clamp-2 leading-relaxed">
+                    {formData.seoDescription || formData.excerpt || 'Write a compelling excerpt or meta description to encourage Google searchers to click through...'}
+                  </p>
+                </div>
               </div>
 
-              {/* Live Google Search Card Preview */}
-              <div className="p-5 bg-white rounded-2xl border border-slate-200 space-y-1 shadow-lg">
-                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mb-2">✨ Live Google Search Result Preview:</span>
-                <div className="text-[12px] text-green-700 flex items-center gap-1">
-                  <Globe className="w-3 h-3" />
-                  <span>https://trioenterprises.in › blog › {formData.slug || 'article'}</span>
+              <div>
+                <div className="flex justify-between items-center mb-1">
+                  <label className="font-semibold text-slate-300 text-xs">SEO Meta Title (Title Tag)</label>
+                  <span className={`text-[10px] ${formData.seoTitle.length > 60 ? 'text-amber-400 font-bold' : 'text-slate-500'}`}>
+                    {formData.seoTitle.length} / 60 characters
+                  </span>
                 </div>
-                <h4 className="text-lg font-medium text-blue-700 hover:underline cursor-pointer leading-snug">{formData.seoTitle || formData.title || 'Article Title Preview | Trio Enterprises'}</h4>
-                <p className="text-[13px] text-gray-600 line-clamp-2 leading-relaxed">{formData.seoDescription || formData.excerpt || 'Article meta description preview will appear here in Google search rankings.'}</p>
+                <input
+                  type="text"
+                  value={formData.seoTitle}
+                  onChange={(e) => setFormData({ ...formData, seoTitle: e.target.value })}
+                  placeholder="Title shown in browser tab and search engines..."
+                  className="admin-input w-full text-xs font-medium"
+                />
+              </div>
+
+              <div>
+                <div className="flex justify-between items-center mb-1">
+                  <label className="font-semibold text-slate-300 text-xs">SEO Meta Description</label>
+                  <span className={`text-[10px] ${formData.seoDescription.length > 160 ? 'text-amber-400 font-bold' : 'text-slate-500'}`}>
+                    {formData.seoDescription.length} / 160 characters
+                  </span>
+                </div>
+                <textarea
+                  rows={3}
+                  value={formData.seoDescription}
+                  onChange={(e) => setFormData({ ...formData, seoDescription: e.target.value })}
+                  placeholder="Summary displayed below title in search results..."
+                  className="admin-input w-full text-xs leading-relaxed"
+                />
               </div>
 
               {/* SEO Checklist */}
-              <div className="p-4 bg-slate-950 rounded-2xl border border-slate-800 space-y-2">
-                <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block mb-1">SEO Checklist:</span>
-                <ul className="space-y-1.5 text-xs">
-                  {[
-                    { label: 'Title length 30-60 chars', ok: seoTitleLen >= 30 && seoTitleLen <= 60 },
-                    { label: 'Description length 80-160 chars', ok: seoDescLen >= 80 && seoDescLen <= 160 },
-                    { label: 'Cover image alt text set', ok: !!formData.imageAlt },
-                    { label: 'URL slug is clean & readable', ok: formData.slug && formData.slug.length > 3 },
-                    { label: 'Excerpt/hook is provided', ok: formData.excerpt?.length > 20 },
-                    { label: 'At least 3 tags assigned', ok: formData.tags?.length >= 3 },
-                  ].map((item, idx) => (
-                    <li key={idx} className={`flex items-center gap-2 ${item.ok ? 'text-emerald-400' : 'text-slate-500'}`}>
-                      <span className={`w-4 h-4 rounded-full border flex items-center justify-center text-[10px] ${item.ok ? 'bg-emerald-500/20 border-emerald-500/40' : 'border-slate-700'}`}>{item.ok ? '✓' : '○'}</span>
-                      {item.label}
-                    </li>
-                  ))}
-                </ul>
+              <div className="p-3.5 bg-slate-950/70 rounded-xl border border-slate-800 space-y-1.5 text-xs">
+                <span className="font-bold text-slate-300 block mb-1">Search Engine Optimization Checklist:</span>
+                {[
+                  { label: 'Featured Cover Image uploaded to CDN', ok: !!formData.image },
+                  { label: 'Cover Image Alt Tag specified for Google Images', ok: !!formData.imageAlt },
+                  { label: 'Article Title present', ok: !!formData.title },
+                  { label: 'Clean URL slug defined', ok: !!formData.slug },
+                  { label: 'Summary / Excerpt defined', ok: !!formData.excerpt },
+                  { label: 'Tags assigned for internal linking', ok: formData.tags.length > 0 },
+                  { label: 'SEO Title within 60 characters', ok: formData.seoTitle.length > 0 && formData.seoTitle.length <= 60 }
+                ].map((item, i) => (
+                  <div key={i} className="flex items-center gap-2 text-[11px]">
+                    {item.ok ? (
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                    ) : (
+                      <AlertCircle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                    )}
+                    <span className={item.ok ? 'text-slate-300' : 'text-slate-500'}>{item.label}</span>
+                  </div>
+                ))}
               </div>
             </div>
           )}
+
+          {/* MODAL FOOTER */}
+          <div className="pt-4 border-t border-slate-800 flex items-center justify-between gap-3">
+            <button
+              type="button"
+              onClick={onClose}
+              className="btn-secondary py-2 px-4 text-xs font-bold"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="btn-primary py-2 px-5 text-xs font-bold flex items-center gap-2 shadow-lg shadow-indigo-600/30"
+            >
+              <Save className="w-4 h-4" />
+              <span>{blog ? 'Save & Update Article' : 'Publish Article to Database'}</span>
+            </button>
+          </div>
+
         </form>
+
       </div>
+
+      {/* ============================================================ */}
+      {/* POPUP MODAL: UPLOAD & INSERT INLINE IMAGE WITH ALT TAG */}
+      {/* ============================================================ */}
+      {insertImageModalOpen && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md animate-fadeIn">
+          <div className="bg-slate-900 border border-slate-700 rounded-3xl w-full max-w-md p-5 space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-indigo-500/20 text-indigo-400 flex items-center justify-center">
+                  <ImagePlus className="w-4 h-4" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-white text-sm">Insert Image into Article</h4>
+                  <p className="text-[10px] text-slate-400">Upload to Supabase CDN with custom Alt Tag</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setInsertImageModalOpen(false)}
+                className="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleInsertInlineImageSubmit} className="space-y-3.5 text-xs">
+              <input
+                ref={inlineDialogFileRef}
+                type="file"
+                accept="image/*"
+                onChange={handleInlineFileSelect}
+                className="hidden"
+              />
+
+              {/* File Selector */}
+              <div>
+                <label className="font-semibold text-slate-300 block mb-1">Choose Image File *</label>
+                {inlineFilePreview ? (
+                  <div className="relative aspect-video rounded-xl overflow-hidden bg-slate-950 border border-slate-700 group">
+                    <img src={inlineFilePreview} alt="Selected preview" className="w-full h-full object-contain" />
+                    <div className="absolute inset-0 bg-slate-950/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <button
+                        type="button"
+                        onClick={() => inlineDialogFileRef.current?.click()}
+                        className="btn-primary py-1 px-3 text-xs"
+                      >
+                        Choose Different File
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    onClick={() => inlineDialogFileRef.current?.click()}
+                    className="border-2 border-dashed border-slate-700 hover:border-indigo-500 rounded-xl p-5 text-center cursor-pointer transition-colors bg-slate-950/40"
+                  >
+                    <Upload className="w-6 h-6 text-indigo-400 mx-auto mb-1" />
+                    <span className="font-bold text-white block text-xs">Click to Browse Image</span>
+                    <span className="text-[10px] text-slate-400">Supports PNG, JPG, WebP</span>
+                  </div>
+                )}
+              </div>
+
+              {/* ALT TAG INPUT (MANDATORY) */}
+              <div>
+                <label className="font-bold text-slate-200 block mb-1 flex items-center gap-1.5">
+                  <Tag className="w-3.5 h-3.5 text-indigo-400" />
+                  Image Alt Tag (for Google SEO & Accessibility) *
+                </label>
+                <input
+                  type="text"
+                  value={inlineAltText}
+                  onChange={(e) => setInlineAltText(e.target.value)}
+                  placeholder="Describe this image (e.g. Close up of metallic bullion threadwork)"
+                  className="admin-input w-full text-xs font-medium"
+                  required
+                />
+                <span className="text-[10px] text-slate-400 mt-0.5 block">
+                  Mandatory: Google index and screen readers use this text.
+                </span>
+              </div>
+
+              {/* CAPTION (OPTIONAL) */}
+              <div>
+                <label className="font-semibold text-slate-300 block mb-1">Caption Text (Optional)</label>
+                <input
+                  type="text"
+                  value={inlineCaption}
+                  onChange={(e) => setInlineCaption(e.target.value)}
+                  placeholder="e.g. Master Karigar at the wooden frame (Jaipur workshop)"
+                  className="admin-input w-full text-xs"
+                />
+              </div>
+
+              {/* ACTION BUTTONS */}
+              <div className="pt-2 border-t border-slate-800 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setInsertImageModalOpen(false)}
+                  className="btn-secondary py-1.5 px-3 text-xs"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={uploadingInline || !inlineFile || !inlineAltText.trim()}
+                  className="btn-primary py-1.5 px-4 text-xs font-bold flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  {uploadingInline ? (
+                    <>
+                      <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <span>Uploading to Supabase CDN...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="w-3.5 h-3.5" />
+                      <span>Upload & Insert into Blog</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };
