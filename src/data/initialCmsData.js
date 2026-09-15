@@ -5,7 +5,7 @@
 
 export const initialHeroSlides = [
   {
-    id: "SLIDE-1",
+    id: "a8aaab85-f8b5-4a9e-9c94-7917c53efc37",
     order: 1,
     isActive: true,
     badge: "Festive & Wedding 2026",
@@ -27,7 +27,7 @@ export const initialHeroSlides = [
     mobileCtaText: "Explore Patches"
   },
   {
-    id: "SLIDE-2",
+    id: "52feae47-3075-47c2-aac7-f157accac2b1",
     order: 2,
     isActive: true,
     badge: "100% Pure Tamra Jal Wellness",
@@ -49,7 +49,7 @@ export const initialHeroSlides = [
     mobileCtaText: "Shop Bottles"
   },
   {
-    id: "SLIDE-3",
+    id: "f7f9bee9-ff2e-4f3b-bb11-a5e5177973f5",
     order: 3,
     isActive: true,
     badge: "Devotion & Sacred Rituals",

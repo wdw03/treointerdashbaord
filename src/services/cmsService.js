@@ -112,7 +112,7 @@ export const cmsService = {
     };
 
     try {
-      if (slideData.id && !String(slideData.id).startsWith('SLIDE-')) {
+      if (slideData.id) {
         await adminApi.updateHeroSlide(slideData.id, payload);
       } else {
         await adminApi.createHeroSlide(payload);
@@ -140,7 +140,7 @@ export const cmsService = {
 
   deleteHeroSlide: async (id) => {
     try {
-      if (id && !String(id).startsWith('SLIDE-')) {
+      if (id) {
         await adminApi.deleteHeroSlide(id);
       }
     } catch (err) {
@@ -158,7 +158,7 @@ export const cmsService = {
     const newActive = target ? !(target.isActive ?? target.is_active) : true;
 
     try {
-      if (id && !String(id).startsWith('SLIDE-')) {
+      if (id) {
         await adminApi.updateHeroSlide(id, { is_active: newActive });
       }
     } catch (err) {
@@ -179,7 +179,7 @@ export const cmsService = {
 
     // Fire non-blocking updates to DB
     reorderedIds.forEach((id, index) => {
-      if (id && !String(id).startsWith('SLIDE-')) {
+      if (id) {
         adminApi.updateHeroSlide(id, { display_order: index + 1 }).catch(() => {});
       }
     });
@@ -188,14 +188,33 @@ export const cmsService = {
     return updated;
   },
 
-  // ═══════════════════════════════════════════════════════════════
-  // HOME SECTIONS CONFIG
-  // ═══════════════════════════════════════════════════════════════
+    // -------------------------------------------------------------
+  // HOME SECTIONS CONFIG (Live Supabase Sync + LocalStorage Cache)
+  // -------------------------------------------------------------
   getHomeSections: async () => {
+    try {
+      if (adminApi.getHomeSections) {
+        const live = await adminApi.getHomeSections();
+        if (live && Object.keys(live).length > 0) {
+          const merged = { ...initialHomeSections, ...live };
+          setStorageData(STORAGE_KEYS.HOME_SECTIONS, merged);
+          return merged;
+        }
+      }
+    } catch (err) {
+      console.warn('API getHomeSections fallback:', err.message);
+    }
     return getStorageData(STORAGE_KEYS.HOME_SECTIONS, initialHomeSections);
   },
 
   updateHomeSection: async (sectionKey, newSectionData) => {
+    try {
+      if (adminApi.updateHomeSection) {
+        await adminApi.updateHomeSection(sectionKey, newSectionData);
+      }
+    } catch (err) {
+      console.warn('API updateHomeSection error:', err.message);
+    }
     const sections = getStorageData(STORAGE_KEYS.HOME_SECTIONS, initialHomeSections);
     const updated = {
       ...sections,
@@ -208,15 +227,24 @@ export const cmsService = {
   toggleSectionVisibility: async (sectionKey) => {
     const sections = getStorageData(STORAGE_KEYS.HOME_SECTIONS, initialHomeSections);
     const isCurrentlyEnabled = sections[sectionKey]?.isEnabled ?? true;
+    const nextState = !isCurrentlyEnabled;
+
+    try {
+      if (adminApi.toggleSectionVisibility) {
+        await adminApi.toggleSectionVisibility(sectionKey, nextState);
+      }
+    } catch (err) {
+      console.warn('API toggleSectionVisibility error:', err.message);
+    }
+
     const updated = {
       ...sections,
-      [sectionKey]: { ...sections[sectionKey], isEnabled: !isCurrentlyEnabled }
+      [sectionKey]: { ...sections[sectionKey], isEnabled: nextState }
     };
     setStorageData(STORAGE_KEYS.HOME_SECTIONS, updated);
     return updated;
   },
 
-  // ═══════════════════════════════════════════════════════════════
   // BLOG ARTICLES CRUD (Synced with Live API & blogs.json)
   // ═══════════════════════════════════════════════════════════════
   getBlogs: async () => {

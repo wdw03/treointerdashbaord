@@ -163,7 +163,8 @@ export const SlideEditorModal = ({
         desktop_image: formData.desktopImage,
         mobile_image: formData.mobileImage.trim() || formData.desktopImage,
         secondary_image: formData.secondaryImage,
-        mobile_title: formData.mobileTitle.trim() || formData.title,
+        title: formData.title.trim(),
+        mobile_title: formData.mobileTitle.trim() || formData.title.trim(),
         mobile_subtitle: formData.mobileSubtitle.trim() || formData.subtitle,
         is_active: formData.isActive,
         display_order: Number(formData.displayOrder) || 0
@@ -378,7 +379,14 @@ export const SlideEditorModal = ({
                 <input
                   type="text"
                   value={formData.title}
-                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                  onChange={(e) => {
+                    const newTitle = e.target.value;
+                    setFormData((prev) => ({
+                      ...prev,
+                      title: newTitle,
+                      mobileTitle: (!prev.mobileTitle || prev.mobileTitle === prev.title || prev.mobileTitle === 'Velvet Pooja Aasans & Brass Thalis' || prev.mobileTitle === 'Pure Ayurvedic Copper Bottles' || prev.mobileTitle === 'Handcrafted Zardosi & Deity Patches') ? newTitle : prev.mobileTitle
+                    }));
+                  }}
                   placeholder="e.g. Handcrafted Zardosi & Sacred Deity Patches"
                   className="admin-input w-full text-xs font-semibold"
                   required
@@ -390,7 +398,14 @@ export const SlideEditorModal = ({
                 <textarea
                   rows={2}
                   value={formData.subtitle}
-                  onChange={(e) => setFormData({ ...formData, subtitle: e.target.value })}
+                  onChange={(e) => {
+                    const newSub = e.target.value;
+                    setFormData((prev) => ({
+                      ...prev,
+                      subtitle: newSub,
+                      mobileSubtitle: (!prev.mobileSubtitle || prev.mobileSubtitle === prev.subtitle) ? newSub : prev.mobileSubtitle
+                    }));
+                  }}
                   placeholder="Detailed artisanal craft story shown on desktop screens..."
                   className="admin-input w-full text-xs leading-relaxed"
                 />

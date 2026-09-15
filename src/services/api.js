@@ -413,6 +413,77 @@ export const adminApi = {
     });
   },
 
+  // Home Page Sections CMS (Dual Supabase Direct + Backend API Fallback)
+  getHomeSections: async () => {
+    try {
+      const { data, error } = await supabase
+        .from('home_sections')
+        .select('*')
+        .order('section_key', { ascending: true });
+
+      if (!error && Array.isArray(data) && data.length > 0) {
+        const sectionsObj = {};
+        for (const row of data) {
+          sectionsObj[row.section_key] = {
+            id: row.section_key,
+            sectionKey: row.section_key,
+            name: row.name,
+            isEnabled: Boolean(row.is_enabled),
+            is_enabled: Boolean(row.is_enabled),
+            description: row.description,
+            ...(row.config || {})
+          };
+        }
+        return sectionsObj;
+      }
+    } catch (e) {
+      console.warn('Supabase direct getHomeSections fallback:', e.message);
+    }
+    return request('/home-sections').then(res => res?.sections || {});
+  },
+
+  updateHomeSection: async (sectionKey, sectionData) => {
+    try {
+      const isEnabled = sectionData.isEnabled !== undefined ? Boolean(sectionData.isEnabled) : (sectionData.is_enabled !== undefined ? Boolean(sectionData.is_enabled) : true);
+      const { data, error } = await supabase
+        .from('home_sections')
+        .upsert({
+          section_key: sectionKey,
+          name: sectionData.name || sectionKey,
+          is_enabled: isEnabled,
+          config: sectionData,
+          updated_at: new Date().toISOString()
+        })
+        .select()
+        .single();
+      if (!error && data) return { success: true, section: data };
+    } catch (e) {
+      console.warn('Supabase direct updateHomeSection fallback:', e.message);
+    }
+    return request('/home-sections', {
+      method: 'PUT',
+      body: JSON.stringify({ sectionKey, ...sectionData }),
+    });
+  },
+
+  toggleSectionVisibility: async (sectionKey, isEnabled) => {
+    try {
+      const { data, error } = await supabase
+        .from('home_sections')
+        .update({ is_enabled: Boolean(isEnabled), updated_at: new Date().toISOString() })
+        .eq('section_key', sectionKey)
+        .select()
+        .single();
+      if (!error && data) return { success: true, section: data };
+    } catch (e) {
+      console.warn('Supabase direct toggleSectionVisibility fallback:', e.message);
+    }
+    return request('/home-sections', {
+      method: 'PUT',
+      body: JSON.stringify({ sectionKey, isEnabled }),
+    });
+  },
+
   // Blogs CMS
   getBlogs: async () => {
     return request('/blogs');
