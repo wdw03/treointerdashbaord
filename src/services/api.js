@@ -1,3 +1,4 @@
+import { supabase } from './supabase.js';
 // Centralized API Client for Trio Ecart Admin Dashboard
 // Direct live production backend fallback for Vercel deployments
 const LIVE_BACKEND_URL = 'https://trioenterprises.in';
@@ -128,6 +129,108 @@ export const adminApi = {
   // Customers
   getCustomers: async () => {
     return request('/admin/customers');
+  },
+
+  // Instagram Reels CMS Management (Dual Supabase Direct + Backend API Fallback)
+  getReels: async (params = {}) => {
+    try {
+      let q = supabase
+        .from('reels')
+        .select('*')
+        .order('display_order', { ascending: true })
+        .order('created_at', { ascending: false });
+
+      if (params.status === 'active') q = q.eq('is_active', true);
+      else if (params.status === 'inactive') q = q.eq('is_active', false);
+
+      if (params.search) {
+        q = q.or(`influencer_name.ilike.%${params.search}%,influencer_username.ilike.%${params.search}%,caption.ilike.%${params.search}%,product_name.ilike.%${params.search}%`);
+      }
+
+      const { data, error } = await q;
+      if (!error && Array.isArray(data) && data.length > 0) {
+        return data;
+      }
+    } catch (e) {
+      console.warn('Supabase direct getReels fallback:', e.message);
+    }
+    const query = new URLSearchParams(params).toString();
+    return request(`/admin/reels${query ? `?${query}` : ''}`);
+  },
+
+  createReel: async (reelData) => {
+    try {
+      const { data, error } = await supabase.from('reels').insert([reelData]).select().single();
+      if (!error && data) return { success: true, reel: data };
+    } catch (e) {
+      console.warn('Supabase direct createReel fallback:', e.message);
+    }
+    return request('/admin/reels', {
+      method: 'POST',
+      body: JSON.stringify(reelData),
+    });
+  },
+
+  updateReel: async (id, reelData) => {
+    try {
+      const { data, error } = await supabase
+        .from('reels')
+        .update({ ...reelData, updated_at: new Date().toISOString() })
+        .eq('id', id)
+        .select()
+        .single();
+      if (!error && data) return { success: true, reel: data };
+    } catch (e) {
+      console.warn('Supabase direct updateReel fallback:', e.message);
+    }
+    return request(`/admin/reels/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(reelData),
+    });
+  },
+
+  deleteReel: async (id) => {
+    try {
+      const { error } = await supabase.from('reels').delete().eq('id', id);
+      if (!error) return { success: true, message: 'Deleted' };
+    } catch (e) {
+      console.warn('Supabase direct deleteReel fallback:', e.message);
+    }
+    return request(`/admin/reels/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  uploadReelVideo: async (file) => {
+    try {
+      const timestamp = Date.now();
+      const cleanName = (file.name || 'video.mp4')
+        .toLowerCase()
+        .replace(/[^a-z0-9.]+/g, '-')
+        .replace(/(^-|-$)+/g, '');
+      const fileName = `${timestamp}-${cleanName}`;
+      const { data, error } = await supabase.storage
+        .from('reels')
+        .upload(fileName, file, {
+          contentType: file.type || 'video/mp4',
+          upsert: true,
+        });
+
+      if (!error && data) {
+        const {
+          data: { publicUrl },
+        } = supabase.storage.from('reels').getPublicUrl(fileName);
+        return { success: true, url: publicUrl, fileName };
+      }
+    } catch (e) {
+      console.warn('Supabase direct upload fallback:', e.message);
+    }
+    const formData = new FormData();
+    formData.append('file', file);
+    return request('/admin/reels/upload', {
+      method: 'POST',
+      body: formData,
+    });
   },
 
   // Blogs CMS

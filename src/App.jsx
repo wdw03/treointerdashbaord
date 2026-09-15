@@ -23,6 +23,7 @@ import { Settings } from './pages/Settings.jsx';
 
 // CMS Pages
 import { HomePageCms } from './pages/cms/HomePageCms.jsx';
+import { ReelsCms } from './pages/cms/ReelsCms.jsx';
 import { BlogManagementCms } from './pages/cms/BlogManagementCms.jsx';
 import { StaticPagesCms } from './pages/cms/StaticPagesCms.jsx';
 import { ContactInquiries } from './pages/ContactInquiries.jsx';
@@ -65,6 +66,8 @@ export default function App() {
             {/* Storefront CMS */}
             <Route path="cms" element={<Navigate to="/cms/home" replace />} />
             <Route path="cms/home" element={<HomePageCms />} />
+            <Route path="cms/reels" element={<ReelsCms />} />
+            <Route path="reels" element={<ReelsCms />} />
             <Route path="cms/blogs" element={<BlogManagementCms />} />
             <Route path="cms/pages" element={<StaticPagesCms />} />
 

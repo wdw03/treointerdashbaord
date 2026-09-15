@@ -3,6 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { useAdmin } from '../../context/AdminContext.jsx';
 import {
   LayoutDashboard,
+  Film,
   ShoppingBag,
   Truck,
   Sparkles,
@@ -86,6 +87,13 @@ export const Sidebar = () => {
       icon: Sliders,
       badge: `${cmsHeroSlides?.length || 3} Slides`,
       badgeColor: 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 font-bold'
+    },
+    {
+      name: 'Instagram Reels CMS',
+      path: '/cms/reels',
+      icon: Film,
+      badge: 'Live',
+      badgeColor: 'bg-[#ee2a7b]/20 text-[#ee2a7b] border border-[#ee2a7b]/30 font-bold'
     },
     {
       name: 'Blog & Journal CMS',
