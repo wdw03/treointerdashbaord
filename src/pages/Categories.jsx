@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useAdmin } from '../context/AdminContext.jsx';
 import { usePageLoading } from '../hooks/usePageLoading.js';
 import { CategoriesGridSkeleton } from '../components/ui/Skeleton.jsx';
 import { ProductImage } from '../components/ui/ProductImage.jsx';
+import { adminApi } from '../services/api.js';
 import {
   Tags,
   Plus,
@@ -12,7 +13,12 @@ import {
   Layers,
   ChevronRight,
   Save,
-  X
+  X,
+  Upload,
+  Loader2,
+  Image as ImageIcon,
+  CheckCircle2,
+  ExternalLink
 } from 'lucide-react';
 
 export const Categories = () => {
@@ -21,13 +27,19 @@ export const Categories = () => {
 
   const [editingCategory, setEditingCategory] = useState(null);
   const [subcatInput, setSubcatInput] = useState('');
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [uploadingBanner, setUploadingBanner] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const imageInputRef = useRef(null);
+  const bannerInputRef = useRef(null);
 
   // Calculate actual product count per category dynamically from catalog
   const categoriesWithCounts = categories.map((c) => {
-    const count = products.filter((p) => p.category?.toLowerCase() === c.name.toLowerCase()).length;
+    const count = products.filter((p) => (p.category || '').toLowerCase() === (c.name || '').toLowerCase()).length;
     return {
       ...c,
-      actualCount: count || c.productCount || 0
+      actualCount: count || c.productCount || c.product_count || 0
     };
   });
 
@@ -35,8 +47,8 @@ export const Categories = () => {
     setEditingCategory({
       name: '',
       slug: '',
-      image: '/products/pearl-zardosi-patch-1.jpg',
-      banner: '/products/red-rose-1.jpg',
+      image: '',
+      banner: '',
       description: '',
       subcategories: []
     });
@@ -60,19 +72,89 @@ export const Categories = () => {
     });
   };
 
-  const handleSave = (e) => {
+  // Upload Category Thumbnail Photo to Supabase
+  const handleCategoryImageUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingImage(true);
+    try {
+      const res = await adminApi.uploadCategoryImage(file);
+      if (res && res.url) {
+        setEditingCategory((prev) => ({
+          ...prev,
+          image: res.url
+        }));
+        if (showToast) showToast('Category image uploaded to Supabase successfully!', 'success');
+      } else {
+        throw new Error(res?.error || 'No URL returned');
+      }
+    } catch (err) {
+      console.error('Category image upload error:', err);
+      if (showToast) showToast(`Failed to upload category image: ${err.message}`, 'error');
+    } finally {
+      setUploadingImage(false);
+      if (imageInputRef.current) imageInputRef.current.value = '';
+    }
+  };
+
+  // Upload Category Header Banner Photo to Supabase
+  const handleCategoryBannerUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingBanner(true);
+    try {
+      const res = await adminApi.uploadCategoryImage(file);
+      if (res && res.url) {
+        setEditingCategory((prev) => ({
+          ...prev,
+          banner: res.url
+        }));
+        if (showToast) showToast('Category banner uploaded to Supabase successfully!', 'success');
+      } else {
+        throw new Error(res?.error || 'No URL returned');
+      }
+    } catch (err) {
+      console.error('Category banner upload error:', err);
+      if (showToast) showToast(`Failed to upload category banner: ${err.message}`, 'error');
+    } finally {
+      setUploadingBanner(false);
+      if (bannerInputRef.current) bannerInputRef.current.value = '';
+    }
+  };
+
+  const handleSave = async (e) => {
     e.preventDefault();
     if (!editingCategory.name.trim()) {
       showToast('Category name is required', 'error');
       return;
     }
 
-    if (editingCategory.id) {
-      updateCategory(editingCategory.id, editingCategory);
-    } else {
-      addCategory(editingCategory);
+    setIsSaving(true);
+    try {
+      const slug = editingCategory.slug?.trim() || editingCategory.name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+      const payload = {
+        ...editingCategory,
+        name: editingCategory.name.trim(),
+        slug,
+        image: editingCategory.image?.trim() || '',
+        banner: editingCategory.banner?.trim() || '',
+        description: editingCategory.description?.trim() || ''
+      };
+
+      if (editingCategory.id) {
+        await updateCategory(editingCategory.id, payload);
+      } else {
+        await addCategory(payload);
+      }
+      setEditingCategory(null);
+    } catch (err) {
+      console.error('Error saving category:', err);
+      if (showToast) showToast(`Error saving category: ${err.message}`, 'error');
+    } finally {
+      setIsSaving(false);
     }
-    setEditingCategory(null);
   };
 
   return (
@@ -80,9 +162,14 @@ export const Categories = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0">
         <div>
-          <h1 className="text-2xl font-black tracking-tight text-white">Categories & Collections</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-black tracking-tight text-white">Categories &amp; Collections</h1>
+            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+              Supabase Storage
+            </span>
+          </div>
           <p className="text-xs sm:text-sm text-slate-400 mt-1">
-            Organize catalog taxonomies, subcategories and storefront navigation.
+            Organize catalog taxonomies, subcategories, collection banners &amp; photos.
           </p>
         </div>
 
@@ -103,12 +190,19 @@ export const Categories = () => {
                   {/* Card Header */}
                   <div className="flex items-start justify-between gap-3 mb-3">
                     <div className="flex items-center gap-3">
-                      <ProductImage
-                        src={cat.image}
-                        category={cat.name}
-                        alt={cat.name}
-                        className="w-12 h-12 rounded-xl"
-                      />
+                      <div className="w-12 h-12 rounded-xl overflow-hidden bg-slate-900 border border-slate-700 shrink-0">
+                        {cat.image ? (
+                          <img
+                            src={cat.image}
+                            alt={cat.name}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-slate-500 text-xs font-bold uppercase">
+                            {cat.name.slice(0, 2)}
+                          </div>
+                        )}
+                      </div>
                       <div>
                         <h3 className="font-bold text-slate-100 text-base leading-tight">{cat.name}</h3>
                         <span className="text-[11px] text-indigo-400 font-mono">/{cat.slug}</span>
@@ -153,7 +247,7 @@ export const Categories = () => {
                     <button
                       onClick={() => setEditingCategory({ ...cat })}
                       className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
-                      title="Edit Category"
+                      title="Edit Category &amp; Photos"
                     >
                       <Edit2 className="w-4 h-4" />
                     </button>
@@ -176,20 +270,25 @@ export const Categories = () => {
         )}
       </div>
 
-      {/* EDIT / CREATE CATEGORY MODAL */}
+      {/* EDIT / CREATE CATEGORY MODAL WITH SUPABASE IMAGE UPLOAD */}
       {editingCategory && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm overflow-y-auto no-print">
-          <div className="bg-slate-900 border border-slate-700/80 rounded-2xl w-full max-w-lg shadow-2xl p-6 space-y-4 animate-scaleIn">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <h3 className="font-bold text-white text-base">
-                {editingCategory.id ? `Edit: ${editingCategory.name}` : 'Create Category'}
-              </h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm overflow-y-auto no-print">
+          <div className="bg-slate-900 border border-slate-700/80 rounded-2xl w-full max-w-lg shadow-2xl p-5 sm:p-6 space-y-4 animate-scaleIn my-auto max-h-[92vh] flex flex-col">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3 shrink-0">
+              <div className="flex items-center gap-2">
+                <span className="p-1 rounded-lg bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
+                  <Tags className="w-4 h-4" />
+                </span>
+                <h3 className="font-bold text-white text-base">
+                  {editingCategory.id ? `Edit Category: ${editingCategory.name}` : 'Create New Category'}
+                </h3>
+              </div>
               <button onClick={() => setEditingCategory(null)} className="text-slate-400 hover:text-white p-1 rounded-lg">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSave} className="space-y-4 text-xs">
+            <form onSubmit={handleSave} className="flex-1 overflow-y-auto space-y-4 text-xs pr-1">
               <div>
                 <label className="font-semibold text-slate-300 block mb-1">Category Title *</label>
                 <input
@@ -197,9 +296,184 @@ export const Categories = () => {
                   value={editingCategory.name}
                   onChange={(e) => setEditingCategory({ ...editingCategory, name: e.target.value })}
                   placeholder="e.g. Traditional Torans & Hangings"
-                  className="admin-input w-full text-xs"
+                  className="admin-input w-full text-xs font-semibold"
                   required
                 />
+              </div>
+
+              <div>
+                <label className="font-semibold text-slate-300 block mb-1">Slug / URL Path</label>
+                <input
+                  type="text"
+                  value={editingCategory.slug || ''}
+                  onChange={(e) => setEditingCategory({ ...editingCategory, slug: e.target.value })}
+                  placeholder="auto-generated from name if blank"
+                  className="admin-input w-full text-xs font-mono"
+                />
+              </div>
+
+              {/* CATEGORY THUMBNAIL PHOTO UPLOAD BOX */}
+              <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <label className="font-bold text-slate-300 flex items-center gap-1.5">
+                    <ImageIcon className="w-3.5 h-3.5 text-indigo-400" />
+                    Category Thumbnail Image (Supabase CDN)
+                  </label>
+                  {editingCategory.image && (
+                    <span className="text-[10px] text-emerald-400 font-semibold flex items-center gap-1">
+                      <CheckCircle2 className="w-3 h-3" /> Photo Attached
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-3">
+                  {/* Thumbnail Preview */}
+                  <div className="w-16 h-16 rounded-xl overflow-hidden border border-slate-700 bg-slate-900 shrink-0 relative group">
+                    {editingCategory.image ? (
+                      <>
+                        <img
+                          src={editingCategory.image}
+                          alt="Category preview"
+                          className="w-full h-full object-cover"
+                        />
+                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => imageInputRef.current?.click()}
+                            className="p-1 rounded bg-indigo-600 text-white"
+                            title="Replace Photo"
+                          >
+                            <Upload className="w-3 h-3" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setEditingCategory((p) => ({ ...p, image: '' }))}
+                            className="p-1 rounded bg-rose-600 text-white"
+                            title="Remove Photo"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <div
+                        onClick={() => imageInputRef.current?.click()}
+                        className="w-full h-full flex flex-col items-center justify-center cursor-pointer text-slate-500 hover:text-slate-300 transition-colors"
+                      >
+                        <Upload className="w-4 h-4 mb-0.5" />
+                        <span className="text-[8px] font-bold">UPLOAD</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Upload Actions & URL input */}
+                  <div className="flex-1 space-y-1.5">
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => imageInputRef.current?.click()}
+                        disabled={uploadingImage}
+                        className="btn-secondary py-1.5 px-3 text-xs flex items-center gap-1.5 disabled:opacity-50"
+                      >
+                        {uploadingImage ? (
+                          <>
+                            <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-400" />
+                            <span>Uploading to Supabase...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Upload className="w-3.5 h-3.5 text-indigo-400" />
+                            <span>{editingCategory.image ? 'Replace Image' : 'Upload Image File'}</span>
+                          </>
+                        )}
+                      </button>
+
+                      {editingCategory.image && (
+                        <button
+                          type="button"
+                          onClick={() => setEditingCategory((p) => ({ ...p, image: '' }))}
+                          className="text-rose-400 hover:text-rose-300 p-1.5 rounded-lg hover:bg-rose-500/10 text-xs flex items-center gap-1"
+                          title="Delete photo"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" /> Remove
+                        </button>
+                      )}
+                    </div>
+
+                    <input
+                      ref={imageInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleCategoryImageUpload}
+                      className="hidden"
+                    />
+
+                    <input
+                      type="text"
+                      value={editingCategory.image || ''}
+                      onChange={(e) => setEditingCategory({ ...editingCategory, image: e.target.value })}
+                      placeholder="Or direct Image URL / CDN Link"
+                      className="admin-input w-full text-[11px] font-mono"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* CATEGORY HEADER BANNER PHOTO (OPTIONAL) */}
+              <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800 space-y-2.5">
+                <label className="font-semibold text-slate-300 block mb-1">
+                  Category Page Header Banner (Optional)
+                </label>
+                <div className="flex items-center gap-3">
+                  <div className="w-24 h-12 rounded-lg overflow-hidden border border-slate-700 bg-slate-900 shrink-0">
+                    {editingCategory.banner ? (
+                      <img
+                        src={editingCategory.banner}
+                        alt="Banner preview"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-slate-600 text-[10px]">
+                        No Banner
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex-1 flex gap-2">
+                    <input
+                      type="text"
+                      value={editingCategory.banner || ''}
+                      onChange={(e) => setEditingCategory({ ...editingCategory, banner: e.target.value })}
+                      placeholder="Banner image URL..."
+                      className="admin-input flex-1 text-[11px] font-mono"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => bannerInputRef.current?.click()}
+                      disabled={uploadingBanner}
+                      className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-white text-xs border border-slate-700 flex items-center gap-1 shrink-0"
+                    >
+                      {uploadingBanner ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+                      <span>Upload</span>
+                    </button>
+                    {editingCategory.banner && (
+                      <button
+                        type="button"
+                        onClick={() => setEditingCategory((p) => ({ ...p, banner: '' }))}
+                        className="p-1.5 text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 rounded-lg"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                  <input
+                    ref={bannerInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleCategoryBannerUpload}
+                    className="hidden"
+                  />
+                </div>
               </div>
 
               <div>
@@ -209,7 +483,7 @@ export const Categories = () => {
                   value={editingCategory.description || ''}
                   onChange={(e) => setEditingCategory({ ...editingCategory, description: e.target.value })}
                   placeholder="Short description for collection banner..."
-                  className="admin-input w-full text-xs"
+                  className="admin-input w-full text-xs leading-relaxed"
                 />
               </div>
 
@@ -228,7 +502,7 @@ export const Categories = () => {
                   </button>
                 </div>
 
-                <div className="flex flex-wrap gap-1.5">
+                <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto">
                   {editingCategory.subcategories?.map((s) => (
                     <span
                       key={s.slug}
@@ -247,13 +521,23 @@ export const Categories = () => {
                 </div>
               </div>
 
-              <div className="border-t border-slate-800 pt-3 flex justify-end gap-2">
-                <button type="button" onClick={() => setEditingCategory(null)} className="btn-secondary py-1.5 px-3 text-xs">
-                  Cancel
-                </button>
-                <button type="submit" className="btn-primary py-1.5 px-4 text-xs font-bold">
-                  <Save className="w-3.5 h-3.5" /> Save Category
-                </button>
+              <div className="border-t border-slate-800 pt-3 flex items-center justify-between">
+                <span className="text-[10px] text-slate-500">
+                  Images stored directly on Supabase Storage bucket.
+                </span>
+                <div className="flex items-center gap-2">
+                  <button type="button" onClick={() => setEditingCategory(null)} className="btn-secondary py-1.5 px-3 text-xs">
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSaving}
+                    className="btn-primary py-1.5 px-4 text-xs font-bold flex items-center gap-1.5 disabled:opacity-50"
+                  >
+                    {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                    <span>{isSaving ? 'Saving...' : 'Save Category'}</span>
+                  </button>
+                </div>
               </div>
             </form>
           </div>

@@ -192,7 +192,7 @@ export const HomePageCms = () => {
                   {/* Slide Preview Image */}
                   <div className="w-20 h-16 sm:w-24 sm:h-20 rounded-xl overflow-hidden border border-slate-700 bg-slate-950 shrink-0 relative group">
                     <img
-                      src={devicePreview === 'mobile' ? (slide.mobileImage || slide.image) : slide.image}
+                      src={devicePreview === 'mobile' ? (slide.mobileImage || slide.mobile_image || slide.desktopImage || slide.desktop_image || slide.image) : (slide.desktopImage || slide.desktop_image || slide.image)}
                       alt={slide.title}
                       className="w-full h-full object-cover"
                     />

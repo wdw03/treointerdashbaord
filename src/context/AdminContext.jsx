@@ -180,8 +180,9 @@ export const AdminProvider = ({ children }) => {
     const loadInitialData = async () => {
       try {
         setIsLoading(true);
-        const [prodsRes, ordersRes, catsRes, custsRes, blogsRes, couponsRes, returnsRes] = await Promise.allSettled([
+        const [prodsRes, heroSlidesRes, ordersRes, catsRes, custsRes, blogsRes, couponsRes, returnsRes] = await Promise.allSettled([
           adminApi.getProducts(),
+          cmsService.getHeroSlides(),
           adminApi.getOrders(),
           adminApi.getCategories(),
           adminApi.getCustomers(),
@@ -191,6 +192,9 @@ export const AdminProvider = ({ children }) => {
         ]);
 
         if (!isMounted) return;
+        if (heroSlidesRes.status === 'fulfilled' && Array.isArray(heroSlidesRes.value) && heroSlidesRes.value.length > 0) {
+          setCmsHeroSlides(heroSlidesRes.value);
+        }
 
         if (prodsRes.status === 'fulfilled' && Array.isArray(prodsRes.value?.products)) {
           const liveProds = prodsRes.value.products;

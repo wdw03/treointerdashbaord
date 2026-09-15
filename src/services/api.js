@@ -58,8 +58,29 @@ export const adminApi = {
     return request('/admin/stats');
   },
 
-  // Products
+  // Products (Direct Supabase SDK query for complete catalog + API fallback)
   getProducts: async (params = {}) => {
+    try {
+      let q = supabase
+        .from('products')
+        .select('*')
+        .order('id', { ascending: true });
+
+      if (params.category && params.category !== 'All') {
+        q = q.ilike('category', '%' + params.category + '%');
+      }
+
+      if (params.search) {
+        q = q.or('name.ilike.%' + params.search + '%,slug.ilike.%' + params.search + '%,category.ilike.%' + params.search + '%');
+      }
+
+      const { data, error } = await q;
+      if (!error && Array.isArray(data) && data.length > 0) {
+        return { products: data, total: data.length };
+      }
+    } catch (e) {
+      console.warn('Supabase direct getProducts fallback:', e.message);
+    }
     const query = new URLSearchParams(params).toString();
     return request(`/admin/products${query ? `?${query}` : ''}`);
   },
@@ -101,12 +122,29 @@ export const adminApi = {
     });
   },
 
-  // Categories
+  // Categories (Dual Supabase Direct + Backend API Fallback)
   getCategories: async () => {
+    try {
+      const { data, error } = await supabase
+        .from('categories')
+        .select('*')
+        .order('sort_order', { ascending: true });
+      if (!error && Array.isArray(data) && data.length > 0) {
+        return { categories: data };
+      }
+    } catch (e) {
+      console.warn('Supabase direct getCategories fallback:', e.message);
+    }
     return request('/admin/categories');
   },
 
   createCategory: async (categoryData) => {
+    try {
+      const { data, error } = await supabase.from('categories').insert([categoryData]).select().single();
+      if (!error && data) return { success: true, category: data };
+    } catch (e) {
+      console.warn('Supabase direct createCategory fallback:', e.message);
+    }
     return request('/admin/categories', {
       method: 'POST',
       body: JSON.stringify(categoryData),
@@ -114,6 +152,12 @@ export const adminApi = {
   },
 
   updateCategory: async (id, categoryData) => {
+    try {
+      const { data, error } = await supabase.from('categories').update(categoryData).eq('id', id).select().single();
+      if (!error && data) return { success: true, category: data };
+    } catch (e) {
+      console.warn('Supabase direct updateCategory fallback:', e.message);
+    }
     return request(`/admin/categories/${id}`, {
       method: 'PUT',
       body: JSON.stringify(categoryData),
@@ -121,8 +165,46 @@ export const adminApi = {
   },
 
   deleteCategory: async (id) => {
+    try {
+      const { error } = await supabase.from('categories').delete().eq('id', id);
+      if (!error) return { success: true, message: 'Category deleted' };
+    } catch (e) {
+      console.warn('Supabase direct deleteCategory fallback:', e.message);
+    }
     return request(`/admin/categories/${id}`, {
       method: 'DELETE',
+    });
+  },
+
+  uploadCategoryImage: async (file) => {
+    try {
+      const timestamp = Date.now();
+      const cleanName = (file.name || 'image.jpg')
+        .toLowerCase()
+        .replace(/[^a-z0-9.]+/g, '-')
+        .replace(/(^-|-$)+/g, '');
+      const fileName = 'categories/' + timestamp + '-' + cleanName;
+      const { data, error } = await supabase.storage
+        .from('products')
+        .upload(fileName, file, {
+          contentType: file.type || 'image/jpeg',
+          upsert: true,
+        });
+
+      if (!error && data) {
+        const {
+          data: { publicUrl },
+        } = supabase.storage.from('products').getPublicUrl(fileName);
+        return { success: true, url: publicUrl, fileName };
+      }
+    } catch (e) {
+      console.warn('Supabase direct uploadCategoryImage fallback:', e.message);
+    }
+    const formData = new FormData();
+    formData.append('file', file);
+    return request('/admin/categories/upload', {
+      method: 'POST',
+      body: formData,
     });
   },
 
@@ -228,6 +310,104 @@ export const adminApi = {
     const formData = new FormData();
     formData.append('file', file);
     return request('/admin/reels/upload', {
+      method: 'POST',
+      body: formData,
+    });
+  },
+
+
+  // Hero Slides & Banners CMS (Dual Supabase Direct + Backend API Fallback)
+  getHeroSlides: async () => {
+    try {
+      const { data, error } = await supabase
+        .from('hero_slides')
+        .select('*')
+        .order('display_order', { ascending: true })
+        .order('created_at', { ascending: false });
+
+      if (!error && Array.isArray(data) && data.length > 0) {
+        return data;
+      }
+    } catch (e) {
+      console.warn('Supabase direct getHeroSlides fallback:', e.message);
+    }
+    return request('/admin/banners').then(res => res?.slides || []);
+  },
+
+  createHeroSlide: async (slideData) => {
+    try {
+      const { data, error } = await supabase
+        .from('hero_slides')
+        .insert([slideData])
+        .select()
+        .single();
+      if (!error && data) return { success: true, slide: data };
+    } catch (e) {
+      console.warn('Supabase direct createHeroSlide fallback:', e.message);
+    }
+    return request('/admin/banners', {
+      method: 'POST',
+      body: JSON.stringify(slideData),
+    });
+  },
+
+  updateHeroSlide: async (id, slideData) => {
+    try {
+      const { data, error } = await supabase
+        .from('hero_slides')
+        .update({ ...slideData, updated_at: new Date().toISOString() })
+        .eq('id', id)
+        .select()
+        .single();
+      if (!error && data) return { success: true, slide: data };
+    } catch (e) {
+      console.warn('Supabase direct updateHeroSlide fallback:', e.message);
+    }
+    return request(`/admin/banners/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(slideData),
+    });
+  },
+
+  deleteHeroSlide: async (id) => {
+    try {
+      const { error } = await supabase.from('hero_slides').delete().eq('id', id);
+      if (!error) return { success: true, message: 'Slide deleted' };
+    } catch (e) {
+      console.warn('Supabase direct deleteHeroSlide fallback:', e.message);
+    }
+    return request(`/admin/banners/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  uploadBannerImage: async (file) => {
+    try {
+      const timestamp = Date.now();
+      const cleanName = (file.name || 'banner.jpg')
+        .toLowerCase()
+        .replace(/[^a-z0-9.]+/g, '-')
+        .replace(/(^-|-$)+/g, '');
+      const fileName = 'banners/' + timestamp + '-' + cleanName;
+      const { data, error } = await supabase.storage
+        .from('banners')
+        .upload(fileName, file, {
+          contentType: file.type || 'image/jpeg',
+          upsert: true,
+        });
+
+      if (!error && data) {
+        const {
+          data: { publicUrl },
+        } = supabase.storage.from('banners').getPublicUrl(fileName);
+        return { success: true, url: publicUrl, fileName };
+      }
+    } catch (e) {
+      console.warn('Supabase direct uploadBannerImage fallback:', e.message);
+    }
+    const formData = new FormData();
+    formData.append('file', file);
+    return request('/admin/banners/upload', {
       method: 'POST',
       body: formData,
     });

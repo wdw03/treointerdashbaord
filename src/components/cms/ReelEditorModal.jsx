@@ -1,4 +1,4 @@
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { useAdmin } from '../../context/AdminContext.jsx';
 import { adminApi } from '../../services/api.js';
 import {
@@ -22,7 +22,9 @@ import {
   Loader2,
   AlertCircle,
   Play,
-  RotateCcw
+  RotateCcw,
+  Tag,
+  Filter
 } from 'lucide-react';
 
 export const ReelEditorModal = ({
@@ -34,7 +36,33 @@ export const ReelEditorModal = ({
 }) => {
   if (!isOpen) return null;
 
-  const { products } = useAdmin();
+  const { products, categories } = useAdmin();
+  const [storeProducts, setStoreProducts] = useState(products || []);
+  const [loadingProducts, setLoadingProducts] = useState(false);
+
+  // If products in context is empty, fetch all products directly from DB
+  useEffect(() => {
+    let isMounted = true;
+    async function fetchAllProducts() {
+      if (!products || products.length === 0) {
+        setLoadingProducts(true);
+        try {
+          const res = await adminApi.getProducts();
+          if (isMounted && res && Array.isArray(res.products)) {
+            setStoreProducts(res.products);
+          }
+        } catch (err) {
+          console.warn('Could not fetch products for reel editor:', err);
+        } finally {
+          if (isMounted) setLoadingProducts(false);
+        }
+      } else {
+        setStoreProducts(products);
+      }
+    }
+    fetchAllProducts();
+    return () => { isMounted = false; };
+  }, [products]);
 
   // Local state for editor
   const [formData, setFormData] = useState({
@@ -66,41 +94,68 @@ export const ReelEditorModal = ({
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Product search state
+  // Product selection & filtering
   const [productSearch, setProductSearch] = useState('');
+  const [productCategoryFilter, setProductCategoryFilter] = useState('All');
   const [productDropdownOpen, setProductDropdownOpen] = useState(false);
 
   // File input refs
   const videoInputRef = useRef(null);
   const avatarInputRef = useRef(null);
 
-  // Filtered available products from store
-  const availableProducts = useMemo(() => {
-    if (!products || !Array.isArray(products)) return [];
-    if (!productSearch.trim()) return products.slice(0, 15);
-    const q = productSearch.toLowerCase();
-    return products.filter((p) =>
-      p.name?.toLowerCase().includes(q) ||
-      p.slug?.toLowerCase().includes(q) ||
-      String(p.id).includes(q)
-    ).slice(0, 20);
-  }, [products, productSearch]);
+  // Extract all distinct category names from store products
+  const allCategoryNames = useMemo(() => {
+    const set = new Set();
+    if (Array.isArray(categories)) {
+      categories.forEach((c) => { if (c.name) set.add(c.name); });
+    }
+    if (Array.isArray(storeProducts)) {
+      storeProducts.forEach((p) => { if (p.category) set.add(p.category); });
+    }
+    return ['All', ...Array.from(set)];
+  }, [categories, storeProducts]);
 
-  // Handle Video file upload directly to Supabase Storage
+  // Filtered available products from entire website
+  const availableProducts = useMemo(() => {
+    if (!storeProducts || !Array.isArray(storeProducts)) return [];
+    let list = storeProducts;
+
+    // Filter by Category
+    if (productCategoryFilter && productCategoryFilter !== 'All') {
+      list = list.filter((p) =>
+        (p.category || '').toLowerCase() === productCategoryFilter.toLowerCase()
+      );
+    }
+
+    // Filter by Search Query
+    if (productSearch.trim()) {
+      const q = productSearch.toLowerCase().trim();
+      list = list.filter((p) =>
+        (p.name && p.name.toLowerCase().includes(q)) ||
+        (p.category && p.category.toLowerCase().includes(q)) ||
+        (p.slug && p.slug.toLowerCase().includes(q)) ||
+        (p.sku && p.sku.toLowerCase().includes(q)) ||
+        String(p.id).includes(q)
+      );
+    }
+
+    return list;
+  }, [storeProducts, productCategoryFilter, productSearch]);
+
+  // Handle Video file upload directly to Supabase Storage bucket 'reels'
   const handleVideoFileChange = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Check size limit (max 50MB)
     if (file.size > 52428800) {
       if (showToast) showToast('Video file size exceeds 50MB limit. Please compress your video.', 'error');
       return;
     }
 
     setUploadingVideo(true);
-    setUploadProgress(15);
+    setUploadProgress(20);
     try {
-      setUploadProgress(45);
+      setUploadProgress(50);
       const res = await adminApi.uploadReelVideo(file);
       setUploadProgress(90);
 
@@ -111,7 +166,7 @@ export const ReelEditorModal = ({
           thumbnail_url: prev.thumbnail_url || prev.influencer_avatar
         }));
         setUploadProgress(100);
-        if (showToast) showToast('Reel video uploaded to Supabase CDN successfully!', 'success');
+        if (showToast) showToast('Reel video uploaded to Supabase Storage successfully!', 'success');
       } else {
         throw new Error(res?.error || 'No URL returned from server');
       }
@@ -124,20 +179,20 @@ export const ReelEditorModal = ({
     }
   };
 
-  // Handle Influencer Avatar upload
+  // Handle Influencer Avatar upload to Supabase Storage
   const handleAvatarFileChange = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setUploadingAvatar(true);
     try {
-      const res = await adminApi.uploadImage(file);
+      const res = await (adminApi.uploadBannerImage ? adminApi.uploadBannerImage(file) : adminApi.uploadCategoryImage(file));
       if (res && res.url) {
         setFormData((prev) => ({
           ...prev,
           influencer_avatar: res.url
         }));
-        if (showToast) showToast('Influencer avatar uploaded successfully!', 'success');
+        if (showToast) showToast('Influencer avatar uploaded to Supabase successfully!', 'success');
       }
     } catch (err) {
       console.error('Avatar upload error:', err);
@@ -148,10 +203,10 @@ export const ReelEditorModal = ({
     }
   };
 
-  // Select an existing product from the store
+  // Select any product from the website
   const handleSelectProduct = (prod) => {
     const price = Number(prod.price) || 0;
-    const oldPrice = Number(prod.original_price || prod.compare_price || (price * 1.5)) || 0;
+    const oldPrice = Number(prod.original_price || prod.compare_price || (price * 1.4)) || 0;
     const discount = oldPrice > price
       ? `${Math.round(((oldPrice - price) / oldPrice) * 100)}% OFF`
       : '';
@@ -169,7 +224,7 @@ export const ReelEditorModal = ({
     }));
     setProductDropdownOpen(false);
     setProductSearch('');
-    if (showToast) showToast(`Linked product: "${prod.name.slice(0, 30)}..."`, 'info');
+    if (showToast) showToast(`Linked product: "${prod.name.slice(0, 30)}..." (${prod.category || 'Store'})`, 'info');
   };
 
   // Remove linked product
@@ -235,7 +290,7 @@ export const ReelEditorModal = ({
                 </span>
               </h2>
               <p className="text-xs text-slate-400">
-                Direct Supabase video upload with influencer profile & linked add-to-cart product
+                Direct Supabase video upload &amp; any product link across all categories
               </p>
             </div>
           </div>
@@ -375,7 +430,7 @@ export const ReelEditorModal = ({
                         : 'bg-slate-800 text-slate-400 border border-slate-700'
                     }`}
                   >
-                    {formData.is_active ? '● Live on Store' : '○ Inactive / Draft'}
+                    {formData.is_active ? '✓ Live on Store' : '✕ Inactive / Draft'}
                   </button>
                 </div>
 
@@ -393,7 +448,7 @@ export const ReelEditorModal = ({
 
             </div>
 
-            {/* Right Column: Influencer Details, Metrics, and Linked Product (7 Cols) */}
+            {/* Right Column: Influencer Details, Metrics, and ALL-Products Selector (7 Cols) */}
             <div className="lg:col-span-7 space-y-5">
               
               {/* SECTION 1: Influencer Info */}
@@ -482,7 +537,7 @@ export const ReelEditorModal = ({
               <div className="p-4 rounded-xl bg-slate-950/50 border border-slate-800 space-y-3">
                 <div className="flex items-center gap-2 pb-2 border-b border-slate-800">
                   <Heart className="w-4 h-4 text-[#ee2a7b]" />
-                  <h3 className="text-xs font-bold text-white uppercase tracking-wider">Reel Content & Social Stats</h3>
+                  <h3 className="text-xs font-bold text-white uppercase tracking-wider">Reel Content &amp; Social Stats</h3>
                 </div>
 
                 <div>
@@ -510,7 +565,7 @@ export const ReelEditorModal = ({
                   />
                 </div>
 
-                {/* Social Counters (Directly Editable) */}
+                {/* Social Counters */}
                 <div className="grid grid-cols-3 gap-3 pt-1">
                   <div>
                     <label className="text-[10px] font-bold text-slate-400 block mb-1 flex items-center gap-1">
@@ -556,7 +611,7 @@ export const ReelEditorModal = ({
                 </div>
               </div>
 
-              {/* SECTION 3: Tagged Store Product (Add to Cart Integration) */}
+              {/* SECTION 3: ALL-PRODUCT LINKING WITH CATEGORIES FILTER */}
               <div className="p-4 rounded-xl bg-slate-950/50 border border-indigo-500/30 space-y-3">
                 <div className="flex items-center justify-between pb-2 border-b border-slate-800">
                   <div className="flex items-center gap-2">
@@ -577,11 +632,87 @@ export const ReelEditorModal = ({
                 </div>
 
                 <p className="text-[11px] text-slate-400">
-                  Select an existing store product. When customers click <b>"Add to Cart"</b> on this reel, this exact product will be added to their cart.
+                  Select any product from the entire website across all categories. When visitors tap <b>"Add to Cart"</b> on this reel, this exact product is added to their cart!
                 </p>
 
-                {/* Product Search & Dropdown */}
-                <div className="relative">
+                {/* CURRENTLY LINKED PRODUCT PREVIEW */}
+                {formData.product_id ? (
+                  <div className="p-3 bg-indigo-950/40 border border-indigo-500/40 rounded-xl flex items-center justify-between gap-3 shadow-inner">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-12 h-12 rounded-lg overflow-hidden border border-indigo-500/40 bg-slate-900 shrink-0">
+                        <img
+                          src={formData.product_image || '/placeholder.png'}
+                          alt={formData.product_name}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] uppercase font-bold text-indigo-300 bg-indigo-500/20 px-1.5 py-0.5 rounded">
+                            Tagged
+                          </span>
+                          <span className="text-[10px] text-slate-400 font-mono">ID: {formData.product_id}</span>
+                        </div>
+                        <h4 className="font-bold text-white text-xs truncate mt-0.5">{formData.product_name}</h4>
+                        <div className="flex items-center gap-2 text-[11px]">
+                          <span className="text-amber-400 font-bold font-mono">₹{formData.product_price}</span>
+                          {formData.product_old_price > formData.product_price && (
+                            <span className="line-through text-slate-500 text-[10px]">₹{formData.product_old_price}</span>
+                          )}
+                          {formData.product_discount && (
+                            <span className="text-emerald-400 text-[10px] font-bold">{formData.product_discount}</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setProductDropdownOpen(true)}
+                      className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shrink-0 transition-colors"
+                    >
+                      Change
+                    </button>
+                  </div>
+                ) : (
+                  <div className="p-3 bg-slate-900/60 border border-dashed border-slate-700 rounded-xl text-center">
+                    <span className="text-xs text-slate-400">No product currently tagged to this reel.</span>
+                  </div>
+                )}
+
+                {/* CATEGORY FILTER TABS */}
+                <div className="space-y-1.5 pt-1">
+                  <span className="text-[10px] uppercase font-bold text-slate-400 flex items-center gap-1 tracking-wider">
+                    <Filter className="w-3 h-3 text-indigo-400" /> Filter by Category ({allCategoryNames.length - 1} Categories):
+                  </span>
+                  <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto py-1">
+                    {allCategoryNames.map((cat) => (
+                      <button
+                        key={cat}
+                        type="button"
+                        onClick={() => {
+                          setProductCategoryFilter(cat);
+                          setProductDropdownOpen(true);
+                        }}
+                        className={`text-[10px] px-2.5 py-1 rounded-lg border transition-all flex items-center gap-1 ${
+                          productCategoryFilter === cat
+                            ? 'bg-amber-500 text-maroon-950 font-bold border-amber-400 shadow-sm'
+                            : 'bg-slate-900 text-slate-300 border-slate-700 hover:bg-slate-800'
+                        }`}
+                      >
+                        <span>{cat}</span>
+                        {cat !== 'All' && storeProducts && (
+                          <span className="opacity-70 text-[9px]">
+                            ({storeProducts.filter((p) => (p.category || '').toLowerCase() === cat.toLowerCase()).length})
+                          </span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* SEARCH INPUT & PRODUCT SELECTION LIST */}
+                <div className="relative pt-1">
                   <div className="relative">
                     <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-3" />
                     <input
@@ -592,7 +723,7 @@ export const ReelEditorModal = ({
                         setProductDropdownOpen(true);
                       }}
                       onFocus={() => setProductDropdownOpen(true)}
-                      placeholder="Search store products by name, id or slug to link..."
+                      placeholder="Search any product across whole store by title, category, ID, or SKU..."
                       className="admin-input w-full text-xs pl-8 pr-8"
                     />
                     {productSearch && (
@@ -606,123 +737,104 @@ export const ReelEditorModal = ({
                     )}
                   </div>
 
-                  {/* Dropdown Menu */}
+                  {/* Dropdown Menu showing all products */}
                   {productDropdownOpen && (
-                    <div className="absolute left-0 right-0 top-full mt-1 z-30 max-h-60 overflow-y-auto bg-slate-900 border border-slate-700 rounded-xl shadow-2xl p-1 space-y-1">
-                      <div className="flex items-center justify-between px-3 py-1.5 text-[10px] text-slate-400 border-b border-slate-800">
-                        <span>Select a product to link:</span>
+                    <div className="absolute left-0 right-0 top-full mt-1.5 z-40 max-h-72 overflow-y-auto bg-slate-900 border border-slate-700 rounded-xl shadow-2xl p-1.5 space-y-1">
+                      <div className="flex items-center justify-between px-3 py-1.5 text-[10px] text-slate-400 border-b border-slate-800 sticky top-0 bg-slate-900 z-10">
+                        <span>
+                          Showing <b>{availableProducts.length}</b> products 
+                          {productCategoryFilter !== 'All' && ` in "${productCategoryFilter}"`}
+                        </span>
                         <button
                           type="button"
                           onClick={() => setProductDropdownOpen(false)}
-                          className="text-slate-400 hover:text-white"
+                          className="text-slate-400 hover:text-white font-bold"
                         >
-                          Close
+                          ✕ Close
                         </button>
                       </div>
+
                       {availableProducts.length > 0 ? (
-                        availableProducts.map((prod) => (
-                          <div
-                            key={prod.id}
-                            onClick={() => handleSelectProduct(prod)}
-                            className="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-800 cursor-pointer transition-colors"
-                          >
-                            <img
-                              src={Array.isArray(prod.images) ? prod.images[0] : (prod.image || '/placeholder.png')}
-                              alt={prod.name}
-                              className="w-9 h-9 rounded-md object-cover bg-slate-950 shrink-0 border border-slate-700"
-                            />
-                            <div className="min-w-0 flex-1">
-                              <p className="text-xs font-semibold text-white truncate">{prod.name}</p>
-                              <div className="flex items-center gap-2 text-[10px] text-slate-400">
-                                <span className="text-amber-400 font-bold">₹{prod.price}</span>
-                                {prod.original_price && (
-                                  <span className="line-through text-slate-500">₹{prod.original_price}</span>
-                                )}
-                                <span>ID: {prod.id}</span>
+                        availableProducts.map((prod) => {
+                          const prodImg = Array.isArray(prod.images) ? (prod.images[0] || '') : (prod.image || '/placeholder.png');
+                          const isSelected = String(formData.product_id) === String(prod.id);
+                          return (
+                            <div
+                              key={prod.id}
+                              onClick={() => handleSelectProduct(prod)}
+                              className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors ${
+                                isSelected ? 'bg-indigo-600/30 border border-indigo-500/50' : 'hover:bg-slate-800'
+                              }`}
+                            >
+                              <img
+                                src={prodImg}
+                                alt={prod.name}
+                                className="w-10 h-10 rounded-lg object-cover bg-slate-950 shrink-0 border border-slate-700"
+                              />
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-[9px] uppercase font-bold text-amber-400 bg-amber-500/10 px-1.5 py-0.2 rounded border border-amber-500/20">
+                                    {prod.category || 'Craft'}
+                                  </span>
+                                  <span className="text-[10px] text-slate-500 font-mono">ID: {prod.id}</span>
+                                </div>
+                                <p className="text-xs font-semibold text-white truncate mt-0.5">{prod.name}</p>
+                                <div className="flex items-center gap-2 text-[10px] text-slate-400">
+                                  <span className="text-amber-400 font-bold font-mono">₹{prod.price}</span>
+                                  {prod.original_price && (
+                                    <span className="line-through text-slate-500 font-mono">₹{prod.original_price}</span>
+                                  )}
+                                  {prod.sku && <span className="text-slate-500 font-mono">SKU: {prod.sku}</span>}
+                                </div>
                               </div>
+                              {isSelected && (
+                                <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                                  Selected
+                                </span>
+                              )}
                             </div>
-                          </div>
-                        ))
+                          );
+                        })
                       ) : (
-                        <div className="p-3 text-center text-xs text-slate-500">
-                          No matching products found
+                        <div className="p-4 text-center text-xs text-slate-500">
+                          No products found matching "{productSearch}" in {productCategoryFilter} category.
                         </div>
                       )}
                     </div>
                   )}
                 </div>
 
-                {/* Selected Product Card Preview */}
-                {formData.product_id ? (
-                  <div className="p-3 rounded-xl bg-slate-900/90 border border-amber-500/30 flex items-center justify-between gap-3 shadow-md">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <img
-                        src={formData.product_image || '/placeholder.png'}
-                        alt={formData.product_name}
-                        className="w-12 h-12 rounded-lg object-cover bg-slate-950 border border-slate-800 shrink-0"
-                      />
-                      <div className="min-w-0">
-                        <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wider block">
-                          Linked Product
-                        </span>
-                        <h4 className="text-xs font-bold text-white truncate">
-                          {formData.product_name}
-                        </h4>
-                        <div className="flex items-center gap-2 text-xs mt-0.5">
-                          <span className="text-amber-400 font-bold">₹{formData.product_price}</span>
-                          {formData.product_old_price > 0 && (
-                            <span className="line-through text-slate-500 text-[10px]">₹{formData.product_old_price}</span>
-                          )}
-                          {formData.product_discount && (
-                            <span className="text-emerald-400 text-[10px] font-bold">{formData.product_discount}</span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="shrink-0 flex items-center gap-2">
-                      <span className="px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-bold">
-                        Cart Ready
-                      </span>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="p-3 rounded-xl bg-slate-950/30 border border-dashed border-slate-800 text-center text-slate-500 text-xs">
-                    No product linked yet. Search and choose an authentic store product above.
-                  </div>
-                )}
               </div>
 
             </div>
+
           </div>
 
-          {/* Modal Footer Actions */}
-          <div className="pt-4 border-t border-slate-800 flex items-center justify-end gap-3">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2.5 rounded-xl border border-slate-800 text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting || uploadingVideo}
-              className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-[#ee2a7b] to-[#d4af37] text-white text-xs font-bold hover:opacity-90 active:scale-95 transition-all shadow-lg flex items-center gap-2 disabled:opacity-50 cursor-pointer"
-            >
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Saving Reel...</span>
-                </>
-              ) : (
-                <>
-                  <Save className="w-4 h-4" />
-                  <span>{formData.id ? 'Update Reel' : 'Publish Reel to Store'}</span>
-                </>
-              )}
-            </button>
+          {/* Modal Footer */}
+          <div className="pt-4 border-t border-slate-800 flex items-center justify-between">
+            <span className="text-[11px] text-slate-400">
+              * Video files will be hosted permanently on Supabase Storage CDN.
+            </span>
+
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={onClose}
+                className="btn-secondary py-2 px-4 text-xs"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="btn-primary py-2 px-6 text-xs font-bold flex items-center gap-2 disabled:opacity-50"
+              >
+                {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                <span>{isSubmitting ? 'Saving Reel to Supabase...' : 'Save & Publish Reel'}</span>
+              </button>
+            </div>
           </div>
+
         </form>
 
       </div>
